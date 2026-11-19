@@ -1,8 +1,4 @@
-"""Thread-safe JSONL storage with candle/signal upsert semantics.
-
-JSONL is suitable for the first single-process prototype. Render's free filesystem
-is ephemeral; use a persistent database before relying on durable history.
-"""
+"""Thread-safe JSONL prototype storage with upsert and signal outcome updates."""
 import json
 from pathlib import Path
 from threading import Lock
@@ -43,7 +39,6 @@ def _key(row: dict) -> tuple:
 
 
 def upsert_candle(candle: VisualCandle) -> bool:
-    """Insert/update a candle. Returns True only for its first closed transition."""
     item = candle.model_dump()
     with _lock:
         rows = _read_all(CANDLES_FILE)
@@ -52,7 +47,6 @@ def upsert_candle(candle: VisualCandle) -> bool:
         was_closed = bool(old and old.get("is_closed"))
         merged = {**(old or {}), **item}
         if was_closed:
-            # Never let a late forming update reopen or overwrite a closed candle.
             merged = {**old, "is_closed": True}
         rows = [row for row in rows if _key(row) != key]
         rows.append(merged)
@@ -74,6 +68,46 @@ def save_signal(signal: Signal) -> bool:
         return True
 
 
+def evaluate_pending_signals(symbol: str, timeframe_seconds: int, completed_candles: list[dict]) -> int:
+    """Evaluate signals only when a closed candle reaches their expiry timestamp."""
+    if not completed_candles:
+        return 0
+    latest = max(completed_candles, key=lambda row: int(row["timestamp"]))
+    latest_ts = int(latest["timestamp"])
+    latest_close = float(latest["close"])
+    changed = 0
+    with _lock:
+        rows = _read_all(SIGNALS_FILE)
+        for row in rows:
+            if row.get("symbol") != symbol.upper() or int(row.get("timeframe_seconds", 60)) != timeframe_seconds:
+                continue
+            if row.get("outcome") != "PENDING":
+                continue
+            expiry = row.get("suggested_expiry_minutes")
+            entry = row.get("entry_price")
+            if not expiry or entry is None or row.get("direction") not in ("CALL", "PUT"):
+                row["outcome"] = "NOT_EVALUATED"
+                row["evaluated_at"] = latest_ts
+                changed += 1
+                continue
+            target_ts = int(row["timestamp"]) + int(expiry) * 60
+            if latest_ts < target_ts:
+                continue
+            if latest_close == float(entry):
+                outcome = "DRAW"
+            elif (row["direction"] == "CALL" and latest_close > float(entry)) or (row["direction"] == "PUT" and latest_close < float(entry)):
+                outcome = "WIN"
+            else:
+                outcome = "LOSS"
+            row["outcome"] = outcome
+            row["outcome_price"] = latest_close
+            row["evaluated_at"] = latest_ts
+            changed += 1
+        if changed:
+            _write_all(SIGNALS_FILE, rows)
+    return changed
+
+
 def read_jsonl(path: Path, limit: int = 200) -> list[dict]:
     with _lock:
         return _read_all(path)[-limit:]
@@ -90,8 +124,10 @@ def candles(limit: int = 200, symbol: str | None = None, timeframe_seconds: int 
     return rows[-limit:]
 
 
-def signals(limit: int = 100, symbol: str | None = None) -> list[dict]:
+def signals(limit: int = 100, symbol: str | None = None, outcome: str | None = None) -> list[dict]:
     rows = read_jsonl(SIGNALS_FILE, 100000)
     if symbol:
         rows = [row for row in rows if row.get("symbol") == symbol.upper()]
+    if outcome:
+        rows = [row for row in rows if row.get("outcome") == outcome.upper()]
     return rows[-limit:]
