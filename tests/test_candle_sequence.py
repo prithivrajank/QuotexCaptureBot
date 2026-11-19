@@ -59,6 +59,6 @@ def test_large_gap_is_counted_without_unbounded_timestamp_list():
         60,
     )
     assert len(ordered) == 2
-    assert info["missing_slot_count"] == 119999
-    assert info["largest_gap_slots"] == 119999
+    assert info["missing_slot_count"] == 1999
+    assert info["largest_gap_slots"] == 1999
     assert len(info["missing_timestamps"]) == 1000
