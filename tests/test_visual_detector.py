@@ -18,6 +18,7 @@ def test_green_candle_body_and_wick_are_separated():
     assert candle.body_bottom <= 115
     assert candle.wick_top <= candle.body_top
     assert candle.wick_bottom >= candle.body_bottom
+    assert 0.75 <= candle.confidence <= 0.95
 
 
 def test_empty_image_returns_no_candidates():
