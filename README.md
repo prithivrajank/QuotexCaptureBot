@@ -49,7 +49,7 @@ Dashboard: http://127.0.0.1:8000/ · API docs: http://127.0.0.1:8000/docs
 
 ## Quotex chart crop profile (screenshot reference)
 
-For the supplied 1917 × 1078 desktop screenshot, the initial chart-only capture rectangle is:
+For the supplied 1917 × 1078 desktop screenshot, the chart capture rectangle is approximately:
 
 ```json
 {
@@ -57,15 +57,15 @@ For the supplied 1917 × 1078 desktop screenshot, the initial chart-only capture
   "timeframe_seconds": 60,
   "fps": 2,
   "region": {
-    "left": 205,
-    "top": 330,
-    "width": 1340,
-    "height": 645
+    "left": 150,
+    "top": 220,
+    "width": 1257,
+    "height": 650
   }
 }
 ```
 
-These coordinates are a starting crop for that screenshot's display layout, not universal coordinates. The screenshot shows a 1-minute chart. Recheck the rectangle if Windows display scaling, browser zoom, window size, taskbar, or Quotex layout changes. The crop intentionally excludes browser chrome, the left navigation, the right trade panel and the bottom time labels. After selecting the region, add the two manually measured price-axis anchors and two x-axis time anchors to the same profile before running capture. The supplied screenshot alone does not provide sufficiently precise calibration values for price/time reconstruction.
+This includes the chart plot, right-side price scale and bottom time labels while excluding browser chrome, left navigation, trade controls and the Windows taskbar. Coordinates are absolute desktop pixels for the supplied screenshot only; they must be rechecked if display scaling, browser zoom, window size or Quotex layout changes. The crop is a visual-region estimate, not a calibrated data source. Price calibration uses y-coordinates relative to the cropped image; time calibration uses x-coordinates relative to the cropped image. The screenshot does not establish precise anchor pixel/time/price pairs, so those calibration values must remain unset until measured from the live Demo chart. Do not insert guessed calibration values or treat the screenshot's displayed balance/trade panel as market data.
 
 ## Multi-pair capture (one profile per visible chart)
 
