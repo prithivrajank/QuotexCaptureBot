@@ -11,7 +11,7 @@ from pathlib import Path
 
 from app.vision.config import load_visual_config, load_calibration, load_time_calibration, validate_visual_config
 from app.vision.detector import detect_candidates
-from app.vision.reconstruct import reconstruct
+from app.vision.reconstruct import reconstruct, validate_candidate
 from app.vision.sequence import deduplicate_candles
 import cv2
 import mss
@@ -106,7 +106,18 @@ def main():
                 candle_ts = time_calibration.candle_timestamp_at(candidate.x, timeframe)
                 if candle_ts > current_slot or candle_ts < current_slot - (500 * timeframe):
                     continue
-                payload = reconstruct(candidate, price_calibration, symbol, candle_ts, timeframe)
+                try:
+                    validate_candidate(candidate)
+                    payload = reconstruct(candidate, price_calibration, symbol, candle_ts, timeframe)
+                except (ValueError, OverflowError) as exc:
+                    print(json.dumps({
+                        "event": "candle_candidate_rejected",
+                        "symbol": symbol,
+                        "timestamp": candle_ts,
+                        "reason": str(exc),
+                        "confidence": candidate.confidence,
+                    }))
+                    continue
                 payload["is_closed"] = candle_ts < current_slot
                 key = (symbol, timeframe, candle_ts)
                 fingerprint = tuple(round(payload[k], 8) for k in ("open", "high", "low", "close")) + (round(payload["confidence"], 3), payload["is_closed"])
