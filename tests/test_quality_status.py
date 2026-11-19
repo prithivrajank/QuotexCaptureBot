@@ -21,3 +21,7 @@ def test_sequence_gaps_or_invalid_calibration_are_warning():
     assert classify_capture_status(60, 50, 10, 1, [], True) == "WARNING"
     assert classify_capture_status(60, 50, 10, 0, [123], True) == "WARNING"
     assert classify_capture_status(60, 50, 10, 0, [], False) == "WARNING"
+
+
+def test_aggregate_missing_slots_trigger_warning_even_if_detail_list_is_capped():
+    assert classify_capture_status(60, 50, 10, 0, [], True, "ALIGNED", 1500) == "WARNING"
