@@ -9,7 +9,7 @@ The branch now includes a first-pass live candle update pipeline and signal-hist
 - When the timeframe rolls over, it submits the last observed candle as closed.
 - The API upserts candle records by symbol, timeframe and candle timestamp, so repeated forming updates do not create duplicate rows.
 - Signals are evaluated only when a candle first transitions to closed; duplicate close submissions do not create duplicate signal-history entries.
-- Dashboard refreshes recent candles and signals.
+- Dashboard refreshes recent candles, signals and historical outcome statistics.\n- CALL/PUT signals record the closed candle close as the estimated entry price and remain PENDING until a later closed candle reaches the configured expiry timestamp. The evaluator labels WIN/LOSS/DRAW by comparing that later close with the entry price; WAIT signals are not evaluated.\n- `GET /api/performance` returns counts and a historical win rate based only on evaluated CALL/PUT signals.
 
 This is still a prototype, not a validated Quotex chart reader. Candle body/wick detection remains heuristic and can misread chart overlays, zoom levels, themes or unusual candle styles. The confidence score is a heuristic filter, not a probability. The agent currently assigns the current time slot to the rightmost detected candle; it does not yet derive timestamps from chart-axis labels or reconstruct a full historical candle series. A missed final capture can therefore leave the last candle incomplete.
 
@@ -43,7 +43,7 @@ Set the same long random `INGEST_TOKEN` privately in the local environment and R
 - `GET /api/signals?symbol=EURUSD_OTC`
 - `POST /api/ingest/candle` with `X-Ingest-Token`
 
-JSONL storage is single-process prototype storage. Render free filesystem is ephemeral and does not provide durable history across restarts/redeploys; move to a persistent database before relying on long-term history.
+Outcome evaluation uses candle-close comparison and does not model payout, spread, execution delay, slippage or broker settlement. It is a rough historical label, not a real-money result.\n\nJSONL storage is single-process prototype storage. Render free filesystem is ephemeral and does not provide durable history across restarts/redeploys; move to a persistent database before relying on long-term history.
 
 ## Safety and limitations
 
