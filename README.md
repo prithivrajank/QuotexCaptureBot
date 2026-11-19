@@ -110,4 +110,4 @@ The Windows capture agent must remain running on the computer displaying the Dem
 
 ## Validation status
 
-Features have been committed to the development branch. They have **not** been locally executed or runtime-validated yet, following the requested workflow. Complete the remaining build first; then perform controlled Demo validation and fix issues found before relying on the dashboard.
+The GitHub Actions Python test suite passed (**43 tests** on the development branch). No local execution or live runtime validation has been performed, following the requested workflow. Controlled Demo chart calibration and visual-accuracy validation are still outstanding; complete those checks before relying on the dashboard.
