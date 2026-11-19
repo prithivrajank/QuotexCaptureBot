@@ -120,7 +120,7 @@ def detect_candidates(image: np.ndarray, min_body_height: int = 3) -> list[Candl
                 body_ratio = body_height / max(1, wick_bottom - wick_top + 1)
                 if body_ratio < 0.20 or fill_ratio < 0.12:
                     continue
-                confidence = float(np.clip(0.42 + 0.28 * fill_ratio + 0.25 * body_ratio, 0.0, 0.95))
+                confidence = float(np.clip(0.70 + 0.20 * fill_ratio + 0.10 * body_ratio, 0.0, 0.95))
                 candidates.append(CandleCandidate(
                     x=int(x + start + (pw - 1) / 2),
                     body_top=int(body_top),
