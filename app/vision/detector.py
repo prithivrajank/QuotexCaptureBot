@@ -22,9 +22,8 @@ class CandleCandidate:
 
 def _remove_long_grid_lines(mask: np.ndarray) -> np.ndarray:
     """Suppress long horizontal/vertical structures before connected components."""
-    height, width = mask.shape[:2]
+    width = mask.shape[1]
     horizontal_len = max(25, width // 5)
-    vertical_len = max(25, height // 5)
     horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (horizontal_len, 1))
     horizontal = cv2.morphologyEx(mask, cv2.MORPH_OPEN, horizontal_kernel)
     # Do not erase long vertical structures: genuine candle wicks are vertical.
