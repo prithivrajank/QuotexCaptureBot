@@ -26,10 +26,10 @@ def _remove_long_grid_lines(mask: np.ndarray) -> np.ndarray:
     horizontal_len = max(25, width // 5)
     vertical_len = max(25, height // 5)
     horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (horizontal_len, 1))
-    vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, vertical_len))
     horizontal = cv2.morphologyEx(mask, cv2.MORPH_OPEN, horizontal_kernel)
-    vertical = cv2.morphologyEx(mask, cv2.MORPH_OPEN, vertical_kernel)
-    return cv2.subtract(mask, cv2.bitwise_or(horizontal, vertical))
+    # Do not erase long vertical structures: genuine candle wicks are vertical.
+    # Thin vertical grid lines are filtered later by the body-width/body-density checks.
+    return cv2.subtract(mask, horizontal)
 
 
 def _longest_true_run(values: np.ndarray) -> tuple[int, int] | None:
