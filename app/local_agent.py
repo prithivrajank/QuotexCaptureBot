@@ -51,6 +51,7 @@ def main():
     headers = {"X-Ingest-Token": token}
     sent_fingerprints = {}
     last_diagnostics_fingerprint = None
+    last_diagnostics_success_monotonic = 0.0
 
     print(json.dumps({"status": "started", "symbol": symbol, "timeframe_seconds": timeframe, "config": str(config_path), "api": api}))
     with mss.mss() as sct:
@@ -61,23 +62,39 @@ def main():
             frame = cv2.cvtColor(raw, cv2.COLOR_BGRA2BGR)
             found = detect_candidates(frame)
             found, sequence_info = deduplicate_candles(found, time_calibration, timeframe)
+            latest_candidate_timestamp = max((time_calibration.candle_timestamp_at(item.x, timeframe) for item in found), default=None)
+            drift_seconds = current_slot - latest_candidate_timestamp if latest_candidate_timestamp is not None else None
+            if drift_seconds is None:
+                alignment_status = "NO_CANDLES"
+            elif drift_seconds < -timeframe:
+                alignment_status = "AHEAD"
+            elif drift_seconds > max(120, timeframe * 2):
+                alignment_status = "LAGGING"
+            else:
+                alignment_status = "ALIGNED"
             diagnostic_payload = {
                 "symbol": symbol, "timeframe_seconds": timeframe, "reported_at": now,
                 "candidate_count": sequence_info["candidate_count"],
                 "unique_slots": sequence_info["unique_slots"],
                 "duplicate_count": len(sequence_info["duplicate_timestamps"]),
                 "missing_timestamps": sequence_info["missing_timestamps"],
-                "calibration_structurally_valid": True, "source": "visual_estimate",
+                "calibration_structurally_valid": True,
+                "latest_candidate_timestamp": latest_candidate_timestamp,
+                "expected_current_slot": current_slot,
+                "timestamp_drift_seconds": drift_seconds,
+                "timestamp_alignment_status": alignment_status,
+                "source": "visual_estimate",
             }
             diagnostic_fingerprint = (
                 diagnostic_payload["candidate_count"], diagnostic_payload["unique_slots"],
                 diagnostic_payload["duplicate_count"], tuple(diagnostic_payload["missing_timestamps"])
             )
-            if diagnostic_fingerprint != last_diagnostics_fingerprint or now % 30 == 0:
+            if diagnostic_fingerprint != last_diagnostics_fingerprint or time.monotonic() - last_diagnostics_success_monotonic >= 30:
                 try:
                     diag_response = requests.post(api + "/api/ingest/diagnostics", json=diagnostic_payload, headers=headers, timeout=8)
                     if diag_response.ok:
                         last_diagnostics_fingerprint = diagnostic_fingerprint
+                        last_diagnostics_success_monotonic = time.monotonic()
                     else:
                         print(f"Diagnostics rejected for {symbol}: {diag_response.status_code} {diag_response.text[:160]}")
                 except requests.RequestException as exc:
