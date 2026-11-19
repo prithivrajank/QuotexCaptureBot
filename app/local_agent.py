@@ -34,22 +34,23 @@ def main():
             frame = cv2.cvtColor(raw, cv2.COLOR_BGRA2BGR)
             found = detect_candidates(frame)
             now = int(time.time())
-            # A visual estimate is only sent once per inferred candle slot.
-            for candidate in found:
+            # Only the rightmost candidate is treated as the forming candle.
+            # Historical x-axis timestamps are not inferred in this version.
+            if found:
+                candidate = max(found, key=lambda item: item.x)
                 slot = now - (now % args.timeframe)
-                key = (args.symbol.upper(), slot, candidate.x)
-                if key in last_sent:
-                    continue
-                payload = reconstruct(candidate, calibration, args.symbol, slot, args.timeframe)
-                try:
-                    response = requests.post(args.api.rstrip("/") + "/api/ingest/candle", json=payload, headers=headers, timeout=8)
-                    if response.ok:
-                        last_sent[key] = now
-                        print(json.dumps(response.json()))
-                    else:
-                        print(f"Ingest rejected: {response.status_code} {response.text[:200]}")
-                except requests.RequestException as exc:
-                    print(f"API connection error: {exc}")
+                key = (args.symbol.upper(), slot)
+                if key not in last_sent:
+                    payload = reconstruct(candidate, calibration, args.symbol, slot, args.timeframe)
+                    try:
+                        response = requests.post(args.api.rstrip("/") + "/api/ingest/candle", json=payload, headers=headers, timeout=8)
+                        if response.ok:
+                            last_sent[key] = now
+                            print(json.dumps(response.json()))
+                        else:
+                            print(f"Ingest rejected: {response.status_code} {response.text[:200]}")
+                    except requests.RequestException as exc:
+                        print(f"API connection error: {exc}")
             if args.once:
                 break
             time.sleep(1.0 / max(0.2, min(args.fps, 5)))
