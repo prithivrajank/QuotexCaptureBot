@@ -82,8 +82,8 @@ def ingest_candle(candle: VisualCandle, x_ingest_token: str = Header(default="")
         raise HTTPException(status_code=401, detail="Invalid ingest token")
     if not candle.valid_ohlc():
         raise HTTPException(status_code=422, detail="Inconsistent or non-finite OHLC values")
-    if candle.confidence < 0.85:
-        raise HTTPException(status_code=422, detail="Visual confidence below acceptance threshold")
+    if candle.confidence < 0.75:
+        raise HTTPException(status_code=422, detail="Visual shape score below 0.75 acceptance threshold")
 
     newly_closed = upsert_candle(candle)
     if not candle.is_closed:
