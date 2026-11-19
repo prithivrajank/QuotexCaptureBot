@@ -31,8 +31,8 @@ def main():
         mon = sct.monitors[1]
         shot = np.asarray(sct.grab(mon))
         frame = cv2.cvtColor(shot, cv2.COLOR_BGRA2BGR)
-        config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() and not args.select else {}
-        region = config.get("region")
+        config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
+        region = None if args.select else config.get("region")
         if region is None and all(k in config for k in ("left", "top", "width", "height")):
             region = {k: config[k] for k in ("left", "top", "width", "height")}
         if region is None:
