@@ -11,6 +11,7 @@ def deduplicate_candles(candidates: Iterable, time_calibration, timeframe_second
     if timeframe_seconds < 1:
         raise ValueError("timeframe_seconds must be positive")
 
+    candidates = list(candidates)
     by_timestamp = {}
     duplicate_slots = []
     for candidate in candidates:
@@ -35,7 +36,7 @@ def deduplicate_candles(candidates: Iterable, time_calibration, timeframe_second
             missing_slots.extend(range(previous + timeframe_seconds, current, timeframe_seconds))
 
     diagnostics = {
-        "candidate_count": sum(1 for _ in candidates) if not isinstance(candidates, (list, tuple)) else len(candidates),
+        "candidate_count": len(candidates),
         "unique_slots": len(ordered),
         "duplicate_timestamps": sorted(set(duplicate_slots)),
         "missing_timestamps": missing_slots,
