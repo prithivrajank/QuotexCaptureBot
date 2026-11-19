@@ -37,6 +37,7 @@ def get_quality(symbol: str | None = None, timeframe_seconds: int | None = Query
             missing_timestamps=report.get("missing_timestamps") or [],
             calibration_structurally_valid=bool(report.get("calibration_structurally_valid")),
             timestamp_alignment_status=str(report.get("timestamp_alignment_status", "ALIGNED")),
+            missing_slot_count=int(report.get("missing_slot_count", 0)),
         )
     return {"items": reports, "signals_enabled": SIGNALS_ENABLED}
 
