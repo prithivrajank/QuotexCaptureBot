@@ -12,6 +12,7 @@ from pathlib import Path
 from app.vision.config import load_visual_config, load_calibration, load_time_calibration, validate_visual_config
 from app.vision.detector import detect_candidates
 from app.vision.reconstruct import reconstruct
+from app.vision.sequence import deduplicate_candles
 import cv2
 import mss
 import numpy as np
@@ -58,6 +59,9 @@ def main():
             raw = np.asarray(sct.grab(region))
             frame = cv2.cvtColor(raw, cv2.COLOR_BGRA2BGR)
             found = detect_candidates(frame)
+            found, sequence_info = deduplicate_candles(found, time_calibration, timeframe)
+            if sequence_info["duplicate_timestamps"] or sequence_info["missing_timestamps"]:
+                print(json.dumps({"event": "candle_sequence_warning", "symbol": symbol, **sequence_info}))
 
             for candidate in found:
                 candle_ts = time_calibration.candle_timestamp_at(candidate.x, timeframe)
