@@ -20,8 +20,9 @@ class VisualCandle(BaseModel):
         return value.strip().upper()
 
     def valid_ohlc(self) -> bool:
+        import math
         values = (self.open, self.high, self.low, self.close)
-        if not all(__import__("math").isfinite(v) for v in values):
+        if not all(math.isfinite(v) for v in values):
             return False
         return self.high >= max(self.open, self.close, self.low) and self.low <= min(self.open, self.close, self.high)
 
@@ -34,5 +35,9 @@ class Signal(BaseModel):
     confidence: float
     reasons: list[str]
     suggested_expiry_minutes: int | None = None
+    entry_price: float | None = None
+    outcome: Literal["PENDING", "WIN", "LOSS", "DRAW", "NOT_EVALUATED"] = "NOT_EVALUATED"
+    outcome_price: float | None = None
+    evaluated_at: int | None = None
     data_quality: str
     source: str = "visual_estimate"
