@@ -9,10 +9,14 @@ class PriceCalibration:
     price_bottom: float
 
     def __post_init__(self):
-        if self.y_top == self.y_bottom:
-            raise ValueError("Calibration pixel anchors must differ")
-        if self.price_top == self.price_bottom:
-            raise ValueError("Calibration prices must differ")
+        import math
+        values = (self.y_top, self.price_top, self.y_bottom, self.price_bottom)
+        if not all(math.isfinite(float(value)) for value in values):
+            raise ValueError("Calibration anchors must be finite")
+        if self.y_bottom <= self.y_top:
+            raise ValueError("Price calibration bottom y anchor must be below top y anchor")
+        if self.price_top <= 0 or self.price_bottom <= 0 or self.price_top == self.price_bottom:
+            raise ValueError("Calibration prices must be distinct and positive")
 
     def price_at(self, y: float) -> float:
         ratio = (y - self.y_top) / (self.y_bottom - self.y_top)
