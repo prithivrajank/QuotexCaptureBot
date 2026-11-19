@@ -1,28 +1,22 @@
 # QuotexCaptureBot
 
-Read-only visual market-analysis platform for Quotex Demo charts. Local Windows capture processes chart pixels; the FastAPI service can run locally or on Render. No order placement, browser credential access, cookie extraction, or trading automation.
+Read-only visual market-analysis project for Quotex Demo charts. The Windows capture process reads only the selected screen rectangle. The API can run locally or on Render. It never places orders or reads browser credentials/cookies.
 
-## Architecture
+## Status
+This repository contains the initial end-to-end scaffold: local chart preview, API, JSONL storage, indicator calculations, conservative signal filter, dashboard, and Render configuration. **Visual candle extraction/OHLC reconstruction is not yet complete.** Until that module is implemented and validated, the signal engine should be treated as experimental and will return WAIT when it has insufficient data.
 
-- Local capture: MSS + OpenCV; user selects a chart rectangle.
-- Visual processing: candle colour/body/wick candidates with confidence and calibration status.
-- Candle store: timestamped OHLC estimates are explicitly marked visual estimates.
-- Indicators: EMA, RSI, MACD, Bollinger Bands.
-- Strategies: trend and mean-reversion candidate rules; conflict/low-quality -> WAIT.
-- API/dashboard: FastAPI endpoints for health, candles, signals and local ingest.
-- Evaluation: signal outcomes are recorded separately; no profitability guarantee.
-
-## Windows quick start (Python 3.11)
+## Windows setup (Python 3.11)
 
 ```cmd
 py -3.11 -m venv .venv
 .venv\Scripts\activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+copy .env.example .env
 python -m app.visual_capture --select
 ```
 
-In another CMD window:
+In a second CMD window, run the API:
 
 ```cmd
 cd /d path\to\QuotexCaptureBot
@@ -30,16 +24,16 @@ cd /d path\to\QuotexCaptureBot
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Open http://127.0.0.1:8000/docs for API docs and http://127.0.0.1:8000/ for dashboard status.
+Dashboard: http://127.0.0.1:8000/ · API docs: http://127.0.0.1:8000/docs
 
-## Render
+## Remote ingest
 
-Deploy the API service with start command `uvicorn main:app --host 0.0.0.0 --port $PORT`. The local desktop capture agent does not run on Render. Configure `INGEST_TOKEN` as a strong random secret in Render and locally before enabling remote ingest. Never commit secrets.
+Set a long random `INGEST_TOKEN` in local environment and Render environment. Never commit real tokens. POST validated `VisualCandle` JSON to `/api/ingest/candle` with header `X-Ingest-Token`. Confidence below 0.85 is rejected. Render free filesystem is ephemeral; use a persistent database before relying on long-term history.
 
-## Visual data limitations
+## Safety and limitations
 
-Screen pixels are not authoritative OHLC. Price-axis calibration, chart scaling, candle spacing, overlays, and UI changes can make estimates inaccurate. This project labels them as visual estimates and should emit WAIT when calibration/confidence is inadequate. Validate against Demo charts before using signals for decisions.
-
-## Safety
-
-Demo-only development. Read-only analysis. No automatic Buy/Sell, no browser debugging protocol, no session or credential collection. Do not upload account screenshots containing personal information.
+- Demo-only development. No Buy/Sell automation.
+- Screen pixels are approximate and require chart calibration. Never represent visual estimates as broker-authoritative OHLC.
+- Signals are experimental, not guaranteed or financial advice.
+- Do not upload screenshots containing account details. Do not share passwords, cookies, session IDs, or tokens.
+- Local screen capture runs on the user's Windows PC, not on Render.
