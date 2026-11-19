@@ -8,6 +8,7 @@ def classify_capture_status(
     duplicate_count: int = 0,
     missing_timestamps: list[int] | None = None,
     calibration_structurally_valid: bool = True,
+    timestamp_alignment_status: str = "ALIGNED",
 ) -> str:
     """Classify visual capture health; thresholds are intentionally conservative."""
     if latest_candle_age_seconds is None or diagnostic_age_seconds is None:
@@ -18,4 +19,6 @@ def classify_capture_status(
         return "STALE"
     if duplicate_count > 0 or missing_timestamps or not calibration_structurally_valid:
         return "WARNING"
+    if timestamp_alignment_status in ("LAGGING", "AHEAD", "NO_CANDLES"):
+        return "TIMESTAMP_DRIFT"
     return "HEALTHY"
