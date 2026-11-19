@@ -46,6 +46,27 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 Dashboard: http://127.0.0.1:8000/ · API docs: http://127.0.0.1:8000/docs
 
 
+
+## Quotex chart crop profile (screenshot reference)
+
+For the supplied 1917 × 1078 desktop screenshot, the initial chart-only capture rectangle is:
+
+```json
+{
+  "symbol": "USD/BRL_OTC",
+  "timeframe_seconds": 60,
+  "fps": 2,
+  "region": {
+    "left": 205,
+    "top": 330,
+    "width": 1340,
+    "height": 645
+  }
+}
+```
+
+These coordinates are a starting crop for that screenshot's display layout, not universal coordinates. The screenshot shows a 1-minute chart. Recheck the rectangle if Windows display scaling, browser zoom, window size, taskbar, or Quotex layout changes. The crop intentionally excludes browser chrome, the left navigation, the right trade panel and the bottom time labels. After selecting the region, add the two manually measured price-axis anchors and two x-axis time anchors to the same profile before running capture. The supplied screenshot alone does not provide sufficiently precise calibration values for price/time reconstruction.
+
 ## Multi-pair capture (one profile per visible chart)
 
 The bot does not turn one screenshot into several symbols. To monitor multiple pairs at once, open each pair in its own visible chart region (for example, separate chart windows) and create one independent profile per chart. Every profile needs its own screen region, two price-axis calibration anchors and two time-axis calibration anchors.
