@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QuotexCaptureBot</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#131f32;--line:#26364d;--muted:#91a4bd;--text:#e8eef7;--green:#22c55e;--red:#ef4444;--blue:#60a5fa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,Segoe UI,sans-serif}main{max-width:1240px;margin:auto;padding:22px}
+header,.toolbar,.row,.stats{display:flex;gap:12px;align-items:center;flex-wrap:wrap}header{justify-content:space-between;margin-bottom:18px}h1{font-size:24px;margin:0}h2{font-size:16px;margin:0 0 14px}.muted,.sub{color:var(--muted)}.sub{font-size:12px;margin-top:4px}
+.panel,.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}.toolbar{margin:14px 0}.toolbar label{color:var(--muted)}select,input,button{background:#0d1728;color:var(--text);border:1px solid var(--line);padding:9px 11px;border-radius:8px}button{cursor:pointer}button:hover{border-color:var(--blue)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:14px}.stat strong{display:block;font-size:22px;margin-top:5px}.stat span{color:var(--muted);font-size:12px}
+.chart-wrap{height:390px;position:relative}canvas{width:100%;height:100%;display:block}.chart-note{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:8px}
+.grid{display:grid;grid-template-columns:1.3fr 1fr;gap:14px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line);white-space:nowrap}th{color:var(--muted);font-weight:600}.call{color:var(--green)}.put{color:var(--red)}.wait{color:#fbbf24}.pill{border:1px solid var(--line);border-radius:20px;padding:4px 8px;font-size:11px}.warning{color:#fbbf24}.good{color:var(--green)}.bad{color:var(--red)}#status{font-size:12px;color:var(--muted)}
+@media(max-width:760px){main{padding:14px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}.chart-wrap{height:300px}}
+</style></head><body><main>
+<header><div><h1>QuotexCaptureBot</h1><div class="sub">Read-only visual chart analysis · Demo validation only</div></div><div id="status">Connecting…</div></header>
+<div class="toolbar"><label>Symbol <input id="symbol" value="" placeholder="All symbols" size="15"></label><label>Timeframe <select id="tf"><option value="">All</option><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select></label><button id="refresh">Refresh now</button><span class="muted">Auto refresh: 5 seconds</span></div>
+<section class="stats">
+<div class="stat"><span>Signals evaluated</span><strong id="evaluated">—</strong></div><div class="stat"><span>Historical win rate</span><strong id="winrate">—</strong></div><div class="stat"><span>Pending signals</span><strong id="pending">—</strong></div><div class="stat"><span>Stored candles</span><strong id="candlecount">—</strong></div>
+</section>
+<section class="panel"><div class="row" style="justify-content:space-between"><h2>Visual candlestick chart</h2><span class="pill warning">VISUAL ESTIMATE · NOT EXCHANGE VERIFIED</span></div><div class="chart-wrap"><canvas id="chart"></canvas></div><div class="chart-note"><span class="good">■ CALL marker</span><span class="bad">■ PUT marker</span><span>Wicks and bodies are reconstructed from screen pixels</span></div></section>
+<div class="grid">
+<section class="panel"><h2>Latest signals</h2><div class="table-wrap"><table><thead><tr><th>Time</th><th>Symbol</th><th>Signal</th><th>Expiry</th><th>Outcome</th><th>Score</th></tr></thead><tbody id="signalRows"><tr><td colspan="6" class="muted">Waiting for data…</td></tr></tbody></table></div></section>
+<section class="panel"><h2>Latest candle details</h2><div id="candleDetails" class="muted">Waiting for captured candles…</div><h2 style="margin-top:20px">System health</h2><div id="health" class="muted">Checking API…</div></section>
+</div>
+<section class="panel"><h2>Important limitations</h2><p class="muted">This dashboard displays estimated candles reconstructed from your screen capture. It is not an official Quotex feed. Signal confidence is a rule-strength score, not a win probability. Historical WIN/LOSS labels compare estimated candle closes and do not represent broker settlement, payout or actual trading profit. No orders are placed.</p><p><a href="/docs" style="color:#60a5fa">Open API documentation</a></p></section>
+</main>
+<script>
+const $=s=>document.querySelector(s);let lastCandles=[];
+function fmtTime(ts){return new Date(ts*1000).toLocaleTimeString()}
+function drawChart(items,signals){
+ const canvas=$('#chart'),rect=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+ canvas.width=Math.max(1,Math.floor(rect.width*dpr));canvas.height=Math.max(1,Math.floor(rect.height*dpr));
+ const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);const w=rect.width,h=rect.height;
+ ctx.clearRect(0,0,w,h);if(!items.length){ctx.fillStyle='#91a4bd';ctx.fillText('No candles received yet. Start the Windows capture agent.',18,30);return}
+ const data=items.slice(-100),min=Math.min(...data.map(c=>c.low)),max=Math.max(...data.map(c=>c.high)),pad=(max-min||1)*.08,lo=min-pad,hi=max+pad;
+ const left=58,right=12,top=14,bottom=28,plotW=w-left-right,plotH=h-top-bottom,step=plotW/data.length,cw=Math.max(3,step*.58);
+ const y=v=>top+(hi-v)/(hi-lo)*plotH;
+ ctx.font='11px system-ui';ctx.strokeStyle='#26364d';ctx.fillStyle='#91a4bd';ctx.lineWidth=1;
+ for(let i=0;i<=4;i++){let yy=top+plotH*i/4,val=hi-(hi-lo)*i/4;ctx.beginPath();ctx.moveTo(left,yy);ctx.lineTo(w-right,yy);ctx.stroke();ctx.fillText(val.toFixed(5),3,yy+4)}
+ data.forEach((c,i)=>{const x=left+step*(i+.5),up=c.close>=c.open;ctx.strokeStyle=up?'#22c55e':'#ef4444';ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(x,y(c.high));ctx.lineTo(x,y(c.low));ctx.stroke();const yy=Math.min(y(c.open),y(c.close)),bh=Math.max(1,Math.abs(y(c.open)-y(c.close)));ctx.fillRect(x-cw/2,yy,cw,bh);if(i%Math.max(1,Math.floor(data.length/5))===0)ctx.fillText(fmtTime(c.timestamp),x-22,h-7)});
+ const start=data[0].timestamp,end=data[data.length-1].timestamp;
+ signals.filter(s=>s.timestamp>=start&&s.timestamp<=end&&['CALL','PUT'].includes(s.direction)).forEach(s=>{let idx=data.findIndex(c=>c.timestamp===s.timestamp);if(idx<0)return;let x=left+step*(idx+.5),yy=s.direction==='CALL'?y(data[idx].low)+13:y(data[idx].high)-13;ctx.fillStyle=s.direction==='CALL'?'#22c55e':'#ef4444';ctx.beginPath();ctx.arc(x,yy,5,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e8eef7';ctx.fillText(s.direction,x-14,s.direction==='CALL'?yy+17:yy-9)});
+}
+async function refresh(){
+ const symbol=$('#symbol').value.trim().toUpperCase(),tf=$('#tf').value;
+ const q=(base)=>base+(symbol?'&symbol='+encodeURIComponent(symbol):'');
+ try{
+  const [health,perf,candleData,signalData]=await Promise.all([fetch('/api/health').then(r=>r.json()),fetch('/api/performance'+(symbol?'?symbol='+encodeURIComponent(symbol):'')).then(r=>r.json()),fetch(q('/api/candles?limit=250'+(tf?'&timeframe_seconds='+tf:''))).then(r=>r.json()),fetch(q('/api/signals?limit=100')).then(r=>r.json())]);
+  lastCandles=candleData.items||[];const sigs=signalData.items||[];
+  $('#status').textContent='Updated '+new Date().toLocaleTimeString();$('#evaluated').textContent=perf.evaluated??0;$('#pending').textContent=perf.pending??0;$('#winrate').textContent=perf.win_rate_percent==null?'—':perf.win_rate_percent+'%';$('#candlecount').textContent=lastCandles.length;
+  $('#health').innerHTML='Status: <b class="good">'+health.status+'</b><br>Mode: '+health.mode+'<br>Storage: '+health.storage+'<br>Source: visual estimates';
+  $('#signalRows').innerHTML=sigs.slice().reverse().slice(0,20).map(s=>'<tr><td>'+fmtTime(s.timestamp)+'</td><td>'+s.symbol+'</td><td class="'+s.direction.toLowerCase()+'">'+s.direction+'</td><td>'+(s.suggested_expiry_minutes?s.suggested_expiry_minutes+' min':'—')+'</td><td>'+s.outcome+'</td><td>'+Math.round((s.confidence||0)*100)+'/100</td></tr>').join('')||'<tr><td colspan="6" class="muted">No signals yet</td></tr>';
+  const c=lastCandles[lastCandles.length-1];$('#candleDetails').innerHTML=c?'Symbol: <b>'+c.symbol+'</b><br>Time: '+fmtTime(c.timestamp)+'<br>State: '+(c.is_closed?'Closed':'Forming')+'<br>O: '+c.open+'<br>H: '+c.high+'<br>L: '+c.low+'<br>C: '+c.close+'<br>Visual confidence: '+Math.round(c.confidence*100)+'/100':'No candle data received';
+  drawChart(lastCandles,sigs);
+ }catch(e){$('#status').textContent='API unavailable: '+e.message}
+}
+$('#refresh').addEventListener('click',refresh);$('#symbol').addEventListener('change',refresh);$('#tf').addEventListener('change',refresh);window.addEventListener('resize',()=>drawChart(lastCandles,[]));refresh();setInterval(refresh,5000);
+</script></body></html>
