@@ -58,3 +58,9 @@ Validation only checks that the values are structurally plausible. It cannot pro
 - Pixel-to-price and pixel-to-time estimates must be compared against visible Demo candles before relying on outputs.
 - If chart layout, scale, theme, timeframe, or zoom changes, stop and recalibrate.
 - Signals remain experimental; no order execution is implemented.
+
+
+## Candle detector filtering
+
+The detector now removes long horizontal/vertical structures from the colour masks before connected-component analysis, then estimates the dense candle-body rows separately from thin wick pixels. Candidate confidence is reduced for sparse shapes and components dominated by thin lines. This is a heuristic improvement only: coloured overlays, unusually thin candles, shadows, annotations and chart themes can still cause false detections or missed candles. The synthetic detector tests are committed but have not been executed in this workflow. Compare detected candles with the live Demo chart before enabling signal generation.
+
