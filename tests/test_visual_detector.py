@@ -32,3 +32,27 @@ def test_invalid_image_is_rejected():
         assert "non-empty" in str(exc)
     else:
         raise AssertionError("Expected ValueError for empty image")
+
+
+
+def test_touching_wick_connected_candles_are_split_at_vertical_valley():
+    image = np.zeros((180, 240, 3), dtype=np.uint8)
+    # Two dense candle bodies connected by a narrow wick bridge.
+    cv2.rectangle(image, (70, 65), (82, 105), (0, 180, 80), -1)
+    cv2.line(image, (76, 35), (76, 130), (0, 180, 80), 2)
+    cv2.rectangle(image, (88, 75), (100, 115), (0, 180, 80), -1)
+    cv2.line(image, (94, 48), (94, 145), (0, 180, 80), 2)
+    cv2.line(image, (82, 90), (88, 90), (0, 180, 80), 1)
+
+    found = detect_candidates(image)
+    near_first = [item for item in found if item.x < 85]
+    near_second = [item for item in found if item.x > 85]
+    assert near_first
+    assert near_second
+
+
+def test_empty_or_ambiguous_wide_blob_is_not_reported_as_many_candles():
+    image = np.zeros((160, 240, 3), dtype=np.uint8)
+    cv2.rectangle(image, (50, 65), (115, 105), (0, 180, 80), -1)
+    found = detect_candidates(image)
+    assert len(found) <= 1
