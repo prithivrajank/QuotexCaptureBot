@@ -19,11 +19,11 @@ def candidate(x, confidence):
 
 def test_candidates_are_ordered_by_timestamp():
     ordered, info = deduplicate_candles(
-        [candidate(300, 0.8), candidate(100, 0.9), candidate(200, 0.85)],
+        [candidate(180, 0.8), candidate(60, 0.9), candidate(120, 0.85)],
         calibration(),
         60,
     )
-    assert [item.x for item in ordered] == [100, 200, 300]
+    assert [item.x for item in ordered] == [60, 120, 180]
     assert info["sequence_contiguous"] is True
 
 
@@ -40,7 +40,7 @@ def test_duplicate_timestamp_keeps_highest_confidence():
 
 def test_missing_slots_are_reported_not_fabricated():
     ordered, info = deduplicate_candles(
-        [candidate(100, 0.9), candidate(300, 0.9)],
+        [candidate(60, 0.9), candidate(180, 0.9)],
         calibration(),
         60,
     )
