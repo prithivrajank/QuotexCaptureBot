@@ -1,7 +1,7 @@
 import secrets
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
-from app.config import INGEST_TOKEN
+from app.config import INGEST_TOKEN, SIGNALS_ENABLED
 from app.models import VisualCandle, Signal
 from app.storage import upsert_candle, save_signal, candles, signals, evaluate_pending_signals, storage_backend
 from app.strategy import make_signal
@@ -13,7 +13,7 @@ app = FastAPI(title="QuotexCaptureBot", version="0.4.0", description="Read-only 
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "mode": "read_only", "source": "visual_estimates", "pipeline": "candle_lifecycle_signal_outcomes", "storage": storage_backend()}
+    return {"status": "ok", "mode": "read_only", "source": "visual_estimates", "pipeline": "candle_lifecycle_signal_outcomes", "signals_enabled": SIGNALS_ENABLED, "storage": storage_backend()}
 
 
 @app.get("/api/candles")
@@ -60,6 +60,8 @@ def ingest_candle(candle: VisualCandle, x_ingest_token: str = Header(default="")
         return {"accepted": True, "candle_state": "already_closed", "signal": None}
 
     completed = candles(1000, candle.symbol, candle.timeframe_seconds, closed_only=True)
+    if not SIGNALS_ENABLED:
+        return {"accepted": True, "candle_state": "closed", "signal_created": False, "signal": None, "signals_enabled": False, "message": "Signal generation is disabled until chart calibration has been reviewed and SIGNALS_ENABLED=true is explicitly set."}
     result = make_signal(completed)
     direction = result["direction"]
     expiry = result["suggested_expiry_minutes"]
