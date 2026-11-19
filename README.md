@@ -9,7 +9,7 @@ Read-only visual market-analysis project for Quotex Demo charts. The Windows cap
 - Visual candle reconstruction with confidence filtering and forming/closed candle lifecycle.
 - FastAPI service with protected candle-ingest endpoint.
 - EMA 9/21/50, MACD, RSI 14, Bollinger Bands, ATR 14, trend strength and recent support/resistance calculations.
-- CALL/PUT/WAIT signal engine with 1-minute or 2-minute suggested expiry rules.
+- CALL/PUT/WAIT signal engine with 1-minute or 2-minute suggested expiry rules; signal generation is disabled by default behind an explicit safety switch.
 - Duplicate candle/signal protection and historical outcome evaluation.
 - PostgreSQL persistence when `DATABASE_URL` is configured; JSONL fallback otherwise.
 - Live dashboard with candlestick chart, CALL/PUT markers, latest signals, performance summary, candle details, indicator snapshot and API health.
@@ -33,7 +33,7 @@ copy .env.example .env
 python -m app.visual_capture --select
 ```
 
-The capture setup stores the selected rectangle in `visual_config.json`. OHLC reconstruction requires two manually measured price-axis anchors under `calibration`, and timestamp reconstruction requires two candle-center x-axis anchors under `time_calibration`. Do not use placeholder values. See [VISUAL_RECOGNITION_ENGINE.md](VISUAL_RECOGNITION_ENGINE.md) for the exact format and limitations.
+The capture setup stores the selected rectangle in `visual_config.json`. OHLC reconstruction requires two manually measured price-axis anchors under `calibration`, and timestamp reconstruction requires two candle-center x-axis anchors under `time_calibration`. Do not use placeholder values. `SIGNALS_ENABLED` defaults to `false` in `.env.example` and Render; the API may accept closed visual candles for inspection, but it will not create or send CALL/PUT signals until this flag is explicitly enabled after the live Demo chart's price/time calibration and candle alignment have been reviewed. `/api/health` reports the current flag. See [VISUAL_RECOGNITION_ENGINE.md](VISUAL_RECOGNITION_ENGINE.md) for the exact format and limitations.
 
 In a second CMD window:
 
@@ -98,6 +98,7 @@ The Windows capture agent must remain running on the computer displaying the Dem
 
 ## Safety
 
+- Signal generation remains disabled (`SIGNALS_ENABLED=false`) until calibration is manually reviewed; do not enable it based on the screenshot crop alone.
 - Demo-only development; no Buy/Sell automation.
 - Never represent visual estimates as broker-authoritative OHLC.
 - No guaranteed signals or guaranteed profit.
