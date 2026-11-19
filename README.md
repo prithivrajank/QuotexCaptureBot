@@ -12,6 +12,7 @@ Read-only visual market-analysis project for Quotex Demo charts. The Windows cap
 - Duplicate candle/signal protection and historical outcome evaluation.
 - PostgreSQL persistence when `DATABASE_URL` is configured; JSONL fallback otherwise.
 - Live dashboard with candlestick chart, CALL/PUT markers, latest signals, performance summary, candle details, indicator snapshot and API health.
+- Optional Telegram notifications for newly-created CALL/PUT signals; disabled unless both private Telegram environment variables are configured. WAIT signals are not sent.
 - API documentation at `/docs`.
 
 ## Important data limitations
@@ -42,6 +43,10 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Dashboard: http://127.0.0.1:8000/ · API docs: http://127.0.0.1:8000/docs
+
+## Optional Telegram notifications
+
+Create a Telegram bot using the official BotFather account and obtain the destination chat ID. Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` as private environment variables in Render. Do not put real values in `.env.example`, GitHub, screenshots or chat messages. The notifier sends only newly-created CALL/PUT signal summaries; it does not send WAIT alerts or place orders. If either variable is missing, notifications remain disabled. A notification failure does not stop candle ingestion.
 
 ## API endpoints
 
