@@ -24,4 +24,5 @@ jobs:
       - name: Run test suite
         env:
           SIGNALS_ENABLED: "false"
+          PYTHONPATH: .
         run: pytest -q
