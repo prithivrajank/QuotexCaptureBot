@@ -38,12 +38,12 @@ Dashboard: http://127.0.0.1:8000/ · API docs: http://127.0.0.1:8000/docs
 
 ## Remote ingest
 
-Set the same long random `INGEST_TOKEN` privately in the local environment and Render environment. Never commit real tokens. The agent sends `is_closed=false` updates while a candle forms and sends the last observed OHLC with `is_closed=true` after timeframe rollover. API endpoints:
+Set the same long random `INGEST_TOKEN` privately in the local environment and Render environment. For persistent history, also set `DATABASE_URL` to a PostgreSQL database connection string (for example, a Neon or Render PostgreSQL database). Never commit real tokens. The agent sends `is_closed=false` updates while a candle forms and sends the last observed OHLC with `is_closed=true` after timeframe rollover. API endpoints:
 - `GET /api/candles?symbol=EURUSD_OTC&timeframe_seconds=60&closed_only=true`
 - `GET /api/signals?symbol=EURUSD_OTC`
 - `POST /api/ingest/candle` with `X-Ingest-Token`
 
-Outcome evaluation uses candle-close comparison and does not model payout, spread, execution delay, slippage or broker settlement. It is a rough historical label, not a real-money result.\n\nJSONL storage is single-process prototype storage. Render free filesystem is ephemeral and does not provide durable history across restarts/redeploys; move to a persistent database before relying on long-term history.
+Outcome evaluation uses candle-close comparison and does not model payout, spread, execution delay, slippage or broker settlement. It is a rough historical label, not a real-money result.\n\nStorage now supports PostgreSQL (recommended for Render) or JSONL fallback. Set the private `DATABASE_URL` environment variable in Render to a PostgreSQL connection string; the app creates its tables automatically. If `DATABASE_URL` is blank, it uses local JSONL files. Never commit a database URL or password. The PostgreSQL schema uses unique keys for each symbol/timeframe/timestamp. This code has been pushed but not locally executed per the current development preference.
 
 ## Safety and limitations
 
