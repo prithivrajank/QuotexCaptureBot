@@ -15,3 +15,5 @@ services:
         sync: false
       - key: DATA_DIR
         value: data
+      - key: SIGNALS_ENABLED
+        value: false
