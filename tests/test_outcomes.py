@@ -30,7 +30,7 @@ def test_uses_first_closed_candle_at_or_after_expiry(tmp_path, monkeypatch):
     import app.storage as storage
     monkeypatch.setattr(storage, "SIGNALS_FILE", tmp_path / "signals.jsonl")
     storage.SIGNALS_FILE.write_text(
-        '{"symbol":"EURUSD_OTC","timeframe_seconds":60,"timestamp":1000,"direction":"CALL","suggested_expiry_minutes":1,"entry_price":1.1,"outcome":"PENDING"}\\n',
+        '{"symbol":"EURUSD_OTC","timeframe_seconds":60,"timestamp":1000,"direction":"CALL","suggested_expiry_minutes":1,"entry_price":1.1,"outcome":"PENDING"}\n',
         encoding="utf-8",
     )
     completed = [
