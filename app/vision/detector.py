@@ -1,4 +1,4 @@
-"""Conservative HSV candle detector with grid-line suppression and body/wick separation."""
+"""Conservative HSV candle detector with grid suppression and merged-shape splitting."""
 from dataclasses import dataclass, asdict
 import cv2
 import numpy as np
@@ -29,22 +29,20 @@ def _remove_long_grid_lines(mask: np.ndarray) -> np.ndarray:
     vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, vertical_len))
     horizontal = cv2.morphologyEx(mask, cv2.MORPH_OPEN, horizontal_kernel)
     vertical = cv2.morphologyEx(mask, cv2.MORPH_OPEN, vertical_kernel)
-    lines = cv2.bitwise_or(horizontal, vertical)
-    return cv2.subtract(mask, lines)
+    return cv2.subtract(mask, cv2.bitwise_or(horizontal, vertical))
 
 
 def _longest_true_run(values: np.ndarray) -> tuple[int, int] | None:
     indices = np.flatnonzero(values)
     if indices.size == 0:
         return None
-    splits = np.where(np.diff(indices) > 1)[0] + 1
-    groups = np.split(indices, splits)
+    groups = np.split(indices, np.where(np.diff(indices) > 1)[0] + 1)
     best = max(groups, key=len)
     return int(best[0]), int(best[-1])
 
 
 def _body_bounds(component: np.ndarray) -> tuple[int, int] | None:
-    """Find the dense central body rows; thin wick rows are excluded."""
+    """Find dense central body rows; thin wick rows are excluded."""
     row_counts = np.count_nonzero(component, axis=1)
     max_count = int(row_counts.max(initial=0))
     if max_count < 2:
@@ -56,66 +54,94 @@ def _body_bounds(component: np.ndarray) -> tuple[int, int] | None:
     return run
 
 
+def _split_wide_component(component: np.ndarray, max_width: int) -> list[tuple[int, int]]:
+    """Split touching candles at low-ink vertical valleys; reject unsplittable blobs."""
+    width = component.shape[1]
+    if width <= max_width:
+        return [(0, width)]
+    projection = np.count_nonzero(component, axis=0).astype(float)
+    # Smooth single-pixel gaps but preserve valleys between neighbouring bodies.
+    smooth = np.convolve(projection, np.ones(3) / 3.0, mode="same")
+    midpoint = width // 2
+    lo = max(2, midpoint - max_width // 2)
+    hi = min(width - 2, midpoint + max_width // 2 + 1)
+    if lo >= hi:
+        return []
+    valley = lo + int(np.argmin(smooth[lo:hi]))
+    peak_left = float(np.max(smooth[:valley])) if valley else 0.0
+    peak_right = float(np.max(smooth[valley + 1:])) if valley + 1 < width else 0.0
+    valley_strength = float(smooth[valley])
+    if min(peak_left, peak_right) <= 0 or valley_strength > min(peak_left, peak_right) * 0.58:
+        return []
+    left = _split_wide_component(component[:, :valley], max_width)
+    right = _split_wide_component(component[:, valley:], max_width)
+    if not left or not right:
+        return []
+    return left + [(start + valley, end + valley) for start, end in right]
+
+
 def detect_candidates(image: np.ndarray, min_body_height: int = 3) -> list[CandleCandidate]:
     if image is None or image.size == 0 or image.ndim != 3:
         raise ValueError("Expected a non-empty BGR chart image")
     bull, bear = candle_masks(image)
     height, width = image.shape[:2]
+    max_body_width = min(30, max(12, width // 20))
     candidates = []
 
     for color, raw_mask in (("bull", bull), ("bear", bear)):
         mask = _remove_long_grid_lines(raw_mask)
-        count, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, 8)
+        count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, 8)
         for i in range(1, count):
             x, y, w, h, area = stats[i]
-            if h < min_body_height or w < 2 or w > max(30, width // 20):
+            if h < min_body_height or w < 2 or area < 6 or h / max(w, 1) < 0.45:
                 continue
-            if area < 6 or h / max(w, 1) < 0.45:
-                continue
-
             component = (labels[y:y+h, x:x+w] == i).astype(np.uint8)
-            bounds = _body_bounds(component)
-            if bounds is None:
-                continue
-            body_top, body_bottom = y + bounds[0], y + bounds[1]
-            body_height = body_bottom - body_top + 1
-            if body_height < min_body_height:
-                continue
+            segments = _split_wide_component(component, max_body_width)
+            for start, end in segments:
+                piece = component[:, start:end]
+                pw = end - start
+                if pw < 2 or pw > max_body_width:
+                    continue
+                bounds = _body_bounds(piece)
+                if bounds is None:
+                    continue
+                body_top, body_bottom = y + bounds[0], y + bounds[1]
+                body_height = body_bottom - body_top + 1
+                if body_height < min_body_height:
+                    continue
+                local = piece
+                rows = np.where(np.any(local > 0, axis=1))[0]
+                if rows.size == 0:
+                    continue
+                wick_top, wick_bottom = y + int(rows.min()), y + int(rows.max())
+                if wick_top > body_top or wick_bottom < body_bottom:
+                    continue
+                fill_ratio = float(np.count_nonzero(piece) / max(1, piece.shape[0] * piece.shape[1]))
+                body_ratio = body_height / max(1, wick_bottom - wick_top + 1)
+                if body_ratio < 0.20 or fill_ratio < 0.12:
+                    continue
+                confidence = float(np.clip(0.42 + 0.28 * fill_ratio + 0.25 * body_ratio, 0.0, 0.95))
+                candidates.append(CandleCandidate(
+                    x=int(x + start + (pw - 1) / 2),
+                    body_top=int(body_top),
+                    body_bottom=int(body_bottom),
+                    wick_top=int(wick_top),
+                    wick_bottom=int(wick_bottom),
+                    color=color,
+                    body_width=int(pw),
+                    confidence=confidence,
+                ))
 
-            cx = int(round(float(centroids[i][0])))
-            # Only inspect the candidate's own narrow x-span for wick pixels.
-            local = mask[:, max(0, x-1):min(width, x+w+1)]
-            rows = np.where(np.any(local > 0, axis=1))[0]
-            if rows.size == 0:
-                continue
-            wick_top, wick_bottom = int(rows.min()), int(rows.max())
-            if wick_top > body_top or wick_bottom < body_bottom:
-                continue
-
-            fill_ratio = min(1.0, area / max(1, w*h))
-            body_ratio = body_height / max(1, h)
-            # Confidence penalizes sparse/noisy shapes and components dominated by thin lines.
-            confidence = float(np.clip(0.42 + 0.28*fill_ratio + 0.25*body_ratio, 0.0, 0.95))
-            if body_ratio < 0.20 or fill_ratio < 0.12:
-                continue
-            candidates.append(CandleCandidate(
-                x=cx,
-                body_top=int(body_top),
-                body_bottom=int(body_bottom),
-                wick_top=wick_top,
-                wick_bottom=wick_bottom,
-                color=color,
-                body_width=int(w),
-                confidence=confidence,
-            ))
-
-    # Deduplicate near-identical x-centres across the two colour masks.
+    # Resolve same-candle detections across overlapping bull/bear masks.
     candidates.sort(key=lambda c: (c.x, -c.confidence))
     merged = []
     for item in candidates:
-        if merged and abs(item.x - merged[-1].x) <= 2:
-            if item.confidence > merged[-1].confidence:
-                merged[-1] = item
-        else:
-            merged.append(item)
+        if merged and abs(item.x - merged[-1].x) <= max(2, min(item.body_width, merged[-1].body_width) // 3):
+            previous = merged[-1]
+            overlap = min(item.wick_bottom, previous.wick_bottom) >= max(item.wick_top, previous.wick_top)
+            if overlap:
+                if item.confidence > previous.confidence:
+                    merged[-1] = item
+                continue
+        merged.append(item)
     return merged
