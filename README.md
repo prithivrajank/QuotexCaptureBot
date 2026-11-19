@@ -49,6 +49,8 @@ Outcome evaluation uses candle-close comparison and does not model payout, sprea
 
 - Demo-only development. No Buy/Sell automation.
 - Screen pixels are approximate and require chart calibration. Never represent visual estimates as broker-authoritative OHLC.
-- Signals are experimental, not guaranteed or financial advice.
+- The signal engine uses EMA9/21/50 alignment, MACD, RSI, Bollinger Bands, ATR, trend-strength and recent support/resistance filters. It requires at least 50 completed candles and returns WAIT when visual quality is low, the market is compressed/sideways, price is too close to a recent boundary, or indicator votes conflict.
+- The 1-minute expiry is selected only for stronger trend conditions; otherwise qualifying signals use 2 minutes. This is a heuristic rule, not an optimized or statistically validated expiry model.
+- Signal confidence is a rule-strength score, not a win probability. Signals are experimental, not guaranteed or financial advice.
 - Do not upload screenshots containing account details. Do not share passwords, cookies, session IDs, or tokens.
 - Local screen capture runs on the user's Windows PC, not on Render.
