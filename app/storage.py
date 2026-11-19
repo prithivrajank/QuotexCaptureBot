@@ -63,7 +63,7 @@ def _write_all(path: Path, rows: list[dict]) -> None:
     temporary = path.with_suffix(path.suffix + ".tmp")
     with temporary.open("w", encoding="utf-8") as handle:
         for row in rows:
-            handle.write(json.dumps(row, separators=(",", ":")) + "\\n")
+            handle.write(json.dumps(row, separators=(",", ":")) + "\n")
     temporary.replace(path)
 
 
