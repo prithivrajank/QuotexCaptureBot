@@ -1,17 +1,24 @@
 # QuotexCaptureBot
 
-Read-only visual market-analysis project for Quotex Demo charts. The Windows capture process reads only the selected screen rectangle. The API can run locally or on Render. It never places orders or reads browser credentials/cookies.
+Read-only visual market-analysis project for Quotex Demo charts. The Windows capture agent reads only the selected screen rectangle and sends reconstructed candle estimates to the API. It never places orders or reads browser credentials/cookies.
 
-## Current development status
+## Current build
 
-The branch now includes a first-pass live candle update pipeline and signal-history deduplication:
-- The local agent repeatedly updates the current forming candle.
-- When the timeframe rolls over, it submits the last observed candle as closed.
-- The API upserts candle records by symbol, timeframe and candle timestamp, so repeated forming updates do not create duplicate rows.
-- Signals are evaluated only when a candle first transitions to closed; duplicate close submissions do not create duplicate signal-history entries.
-- Dashboard refreshes recent candles, signals and historical outcome statistics.\n- CALL/PUT signals record the closed candle close as the estimated entry price and remain PENDING until a later closed candle reaches the configured expiry timestamp. The evaluator labels WIN/LOSS/DRAW by comparing that later close with the entry price; WAIT signals are not evaluated.\n- `GET /api/performance` returns counts and a historical win rate based only on evaluated CALL/PUT signals.
+- Windows screen capture with manual price-axis and time-axis calibration.
+- Visual candle reconstruction with confidence filtering and forming/closed candle lifecycle.
+- FastAPI service with protected candle-ingest endpoint.
+- EMA 9/21/50, MACD, RSI 14, Bollinger Bands, ATR 14, trend strength and recent support/resistance calculations.
+- CALL/PUT/WAIT signal engine with 1-minute or 2-minute suggested expiry rules.
+- Duplicate candle/signal protection and historical outcome evaluation.
+- PostgreSQL persistence when `DATABASE_URL` is configured; JSONL fallback otherwise.
+- Live dashboard with candlestick chart, CALL/PUT markers, latest signals, performance summary, candle details, indicator snapshot and API health.
+- API documentation at `/docs`.
 
-This is still a prototype, not a validated Quotex chart reader. Candle body/wick detection remains heuristic and can misread chart overlays, zoom levels, themes or unusual candle styles. The confidence score is a heuristic filter, not a probability. The agent now maps detected candle x-centers to timestamps using two manually supplied x-axis time anchors and can submit multiple visible candles. This is linear pixel-to-time calibration, not automatic OCR; irregular spacing, hidden candles, or chart layout changes can invalidate it. Compare reconstructed candles with the visible Demo chart before relying on the history.
+## Important data limitations
+
+This is a prototype, not a validated Quotex chart reader. Candle body/wick detection is heuristic and can misread overlays, zoom levels, themes or unusual candle styles. Price and timestamp calibration are manual, using two anchors each; chart layout, zoom, timeframe or candle spacing changes can invalidate calibration. The reconstructed OHLC values are **visual estimates**, not an official or broker-authoritative feed.
+
+Signal confidence is a rule-strength score, not a probability. Historical WIN/LOSS/DRAW labels compare estimated candle closes and do not model payout, spread, execution delay, slippage or broker settlement. They are not actual trading profit or a guarantee.
 
 ## Windows setup (Python 3.11)
 
@@ -24,9 +31,9 @@ copy .env.example .env
 python -m app.visual_capture --select
 ```
 
-The capture setup stores the selected rectangle in `visual_config.json` and preserves a calibration object if one already exists. OHLC reconstruction requires two manually measured price-axis anchors under `calibration`, and timestamp reconstruction requires two candle-center x-axis anchors under `time_calibration`; do not use placeholder values. See `VISUAL_RECOGNITION_ENGINE.md` for the exact format and limitations.
+The capture setup stores the selected rectangle in `visual_config.json`. OHLC reconstruction requires two manually measured price-axis anchors under `calibration`, and timestamp reconstruction requires two candle-center x-axis anchors under `time_calibration`. Do not use placeholder values. See [VISUAL_RECOGNITION_ENGINE.md](VISUAL_RECOGNITION_ENGINE.md) for the exact format and limitations.
 
-In a second CMD window, run the API:
+In a second CMD window:
 
 ```cmd
 cd /d path\to\QuotexCaptureBot
@@ -36,21 +43,28 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
 Dashboard: http://127.0.0.1:8000/ · API docs: http://127.0.0.1:8000/docs
 
-## Remote ingest
+## API endpoints
 
-Set the same long random `INGEST_TOKEN` privately in the local environment and Render environment. For persistent history, also set `DATABASE_URL` to a PostgreSQL database connection string (for example, a Neon or Render PostgreSQL database). Never commit real tokens. The agent sends `is_closed=false` updates while a candle forms and sends the last observed OHLC with `is_closed=true` after timeframe rollover. API endpoints:
+- `GET /api/health`
 - `GET /api/candles?symbol=EURUSD_OTC&timeframe_seconds=60&closed_only=true`
 - `GET /api/signals?symbol=EURUSD_OTC`
+- `GET /api/indicators?symbol=EURUSD_OTC&timeframe_seconds=60`
+- `GET /api/performance`
 - `POST /api/ingest/candle` with `X-Ingest-Token`
 
-Outcome evaluation uses candle-close comparison and does not model payout, spread, execution delay, slippage or broker settlement. It is a rough historical label, not a real-money result.\n\nStorage now supports PostgreSQL (recommended for Render) or JSONL fallback. Set the private `DATABASE_URL` environment variable in Render to a PostgreSQL connection string; the app creates its tables automatically. If `DATABASE_URL` is blank, it uses local JSONL files. Never commit a database URL or password. The PostgreSQL schema uses unique keys for each symbol/timeframe/timestamp. This code has been pushed but not locally executed per the current development preference.
+## Render deployment and persistence
 
-## Safety and limitations
+Set a long random `INGEST_TOKEN` privately in both the Windows agent environment and Render environment. For persistent history, set `DATABASE_URL` privately in Render to a PostgreSQL connection string (for example, Neon or Render PostgreSQL). The app creates its tables automatically. If `DATABASE_URL` is blank, it uses JSONL files, which are not durable on an ephemeral Render filesystem. Never commit database URLs, passwords or tokens.
 
-- Demo-only development. No Buy/Sell automation.
-- Screen pixels are approximate and require chart calibration. Never represent visual estimates as broker-authoritative OHLC.
-- The signal engine uses EMA9/21/50 alignment, MACD, RSI, Bollinger Bands, ATR, trend-strength and recent support/resistance filters. It requires at least 50 completed candles and returns WAIT when visual quality is low, the market is compressed/sideways, price is too close to a recent boundary, or indicator votes conflict.
-- The 1-minute expiry is selected only for stronger trend conditions; otherwise qualifying signals use 2 minutes. This is a heuristic rule, not an optimized or statistically validated expiry model.
-- Signal confidence is a rule-strength score, not a win probability. Signals are experimental, not guaranteed or financial advice.
-- Do not upload screenshots containing account details. Do not share passwords, cookies, session IDs, or tokens.
-- Local screen capture runs on the user's Windows PC, not on Render.
+The Windows capture agent must remain running on the computer displaying the Demo chart. Render hosts the API/dashboard; it cannot capture the user's local screen.
+
+## Safety
+
+- Demo-only development; no Buy/Sell automation.
+- Never represent visual estimates as broker-authoritative OHLC.
+- No guaranteed signals or guaranteed profit.
+- Do not upload screenshots containing account details or share passwords, cookies, session IDs or tokens.
+
+## Validation status
+
+Features have been committed to the development branch. They have **not** been locally executed or runtime-validated yet, following the requested workflow. Complete the remaining build first; then perform controlled Demo validation and fix issues found before relying on the dashboard.
