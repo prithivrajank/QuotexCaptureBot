@@ -9,7 +9,7 @@ import os
 import time
 from pathlib import Path
 
-from app.vision.config import load_visual_config, load_calibration, load_time_calibration
+from app.vision.config import load_visual_config, load_calibration, load_time_calibration, validate_visual_config
 from app.vision.detector import detect_candidates
 from app.vision.reconstruct import reconstruct
 import cv2
@@ -30,6 +30,9 @@ def main():
 
     config_path = Path(args.config)
     cfg = load_visual_config(config_path)
+    profile_errors = validate_visual_config(cfg)
+    if profile_errors:
+        raise SystemExit("Invalid chart profile: " + "; ".join(profile_errors))
     api = (args.api or cfg.get("api") or os.getenv("BOT_API_URL") or "http://127.0.0.1:8000").rstrip("/")
     symbol = (args.symbol or cfg.get("symbol") or "EURUSD_OTC").strip().upper()
     timeframe = int(args.timeframe or cfg.get("timeframe_seconds", 60))
