@@ -9,6 +9,7 @@ from app.models import VisualCandle, Signal
 _lock = Lock()
 CANDLES_FILE = DATA_DIR / "candles.jsonl"
 SIGNALS_FILE = DATA_DIR / "signals.jsonl"
+QUALITY_FILE = DATA_DIR / "quality.jsonl"
 
 _engine = create_engine(DATABASE_URL, pool_pre_ping=True) if DATABASE_URL else None
 _metadata = MetaData()
@@ -26,6 +27,12 @@ _signal_table = Table(
     Column("timeframe_seconds", Integer, primary_key=True),
     Column("timestamp", Integer, primary_key=True),
     Column("outcome", String(20), nullable=False),
+    Column("payload", Text, nullable=False),
+)
+_quality_table = Table(
+    "capture_quality", _metadata,
+    Column("symbol", String(40), primary_key=True),
+    Column("timeframe_seconds", Integer, primary_key=True),
     Column("payload", Text, nullable=False),
 )
 if _engine is not None:
@@ -192,3 +199,37 @@ def signals(limit: int = 100, symbol: str | None = None, outcome: str | None = N
     if outcome:
         rows = [row for row in rows if row.get("outcome") == outcome.upper()]
     return rows[-limit:]
+
+
+def save_quality_report(report: dict) -> None:
+    symbol = str(report["symbol"]).upper()
+    timeframe = int(report["timeframe_seconds"])
+    payload = json.dumps(report, separators=(",", ":"))
+    with _lock:
+        if _engine is not None:
+            where = and_(_quality_table.c.symbol == symbol, _quality_table.c.timeframe_seconds == timeframe)
+            with _engine.begin() as connection:
+                exists = connection.execute(select(_quality_table.c.symbol).where(where)).first()
+                if exists:
+                    connection.execute(update(_quality_table).where(where).values(payload=payload))
+                else:
+                    connection.execute(insert(_quality_table).values(symbol=symbol, timeframe_seconds=timeframe, payload=payload))
+            return
+        rows = _read_all(QUALITY_FILE)
+        rows = [r for r in rows if (r.get("symbol"), int(r.get("timeframe_seconds", 60))) != (symbol, timeframe)]
+        rows.append(report)
+        _write_all(QUALITY_FILE, rows)
+
+
+def quality_reports(symbol: str | None = None, timeframe_seconds: int | None = None) -> list[dict]:
+    with _lock:
+        if _engine is not None:
+            with _engine.connect() as connection:
+                rows = [json.loads(v) for v in connection.execute(select(_quality_table.c.payload)).scalars().all()]
+        else:
+            rows = _read_all(QUALITY_FILE)
+    if symbol:
+        rows = [r for r in rows if r.get("symbol") == symbol.upper()]
+    if timeframe_seconds is not None:
+        rows = [r for r in rows if int(r.get("timeframe_seconds", 60)) == timeframe_seconds]
+    return sorted(rows, key=lambda r: (r.get("symbol", ""), int(r.get("timeframe_seconds", 60))))
