@@ -36,9 +36,8 @@ def test_malformed_candidate_is_rejected(overrides):
 
 
 def test_non_positive_calibrated_prices_are_rejected():
-    calibration = PriceCalibration(0, 1.0, 100, -1.0)
-    with pytest.raises(ValueError, match="non-finite or non-positive"):
-        reconstruct(candidate(), calibration, "EURUSD_OTC", 1_800_000_000, 60)
+    with pytest.raises(ValueError, match="positive"):
+        PriceCalibration(0, 1.0, 100, -1.0)
 
 
 
