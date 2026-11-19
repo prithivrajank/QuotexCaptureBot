@@ -127,8 +127,8 @@ def save_signal(signal: Signal) -> bool:
 def evaluate_pending_signals(symbol: str, timeframe_seconds: int, completed_candles: list[dict]) -> int:
     if not completed_candles:
         return 0
-    latest = max(completed_candles, key=lambda row: int(row["timestamp"]))
-    latest_ts, latest_close = int(latest["timestamp"]), float(latest["close"])
+    ordered_candles = sorted(completed_candles, key=lambda row: int(row["timestamp"]))
+    latest_ts = int(ordered_candles[-1]["timestamp"])
     changed = 0
     with _lock:
         rows = _db_rows(_signal_table) if _engine is not None else _read_all(SIGNALS_FILE)
@@ -141,15 +141,18 @@ def evaluate_pending_signals(symbol: str, timeframe_seconds: int, completed_cand
                 changed += 1
                 continue
             target_ts = int(row["timestamp"]) + int(expiry) * 60
-            if latest_ts < target_ts:
+            expiry_candle = next((c for c in ordered_candles if int(c["timestamp"]) >= target_ts), None)
+            if expiry_candle is None:
                 continue
-            if latest_close == float(entry):
+            expiry_close = float(expiry_candle["close"])
+            expiry_ts = int(expiry_candle["timestamp"])
+            if expiry_close == float(entry):
                 outcome = "DRAW"
-            elif (row["direction"] == "CALL" and latest_close > float(entry)) or (row["direction"] == "PUT" and latest_close < float(entry)):
+            elif (row["direction"] == "CALL" and expiry_close > float(entry)) or (row["direction"] == "PUT" and expiry_close < float(entry)):
                 outcome = "WIN"
             else:
                 outcome = "LOSS"
-            row["outcome"], row["outcome_price"], row["evaluated_at"] = outcome, latest_close, latest_ts
+            row["outcome"], row["outcome_price"], row["evaluated_at"] = outcome, expiry_close, expiry_ts
             changed += 1
 
         if changed and _engine is not None:
