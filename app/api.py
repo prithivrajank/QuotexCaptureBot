@@ -6,6 +6,7 @@ from app.models import VisualCandle, Signal
 from app.storage import upsert_candle, save_signal, candles, signals, evaluate_pending_signals, storage_backend
 from app.strategy import make_signal
 from app.indicators import calculate_indicators
+from app.notifications import send_signal_alert
 
 app = FastAPI(title="QuotexCaptureBot", version="0.4.0", description="Read-only visual chart analysis. Signals are experimental, not financial advice.")
 
@@ -71,6 +72,8 @@ def ingest_candle(candle: VisualCandle, x_ingest_token: str = Header(default="")
         **result
     )
     created = save_signal(signal)
+    if created and direction in ("CALL", "PUT"):
+        send_signal_alert(signal.model_dump())
     evaluated = evaluate_pending_signals(candle.symbol, candle.timeframe_seconds, completed)
     return {"accepted": True, "candle_state": "closed", "signal_created": created, "outcomes_updated": evaluated, "signal": signal.model_dump() if created else None}
 
