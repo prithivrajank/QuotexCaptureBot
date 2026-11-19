@@ -1,5 +1,6 @@
 import secrets
 import time
+from app.quality import classify_capture_status
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from app.config import INGEST_TOKEN, SIGNALS_ENABLED
@@ -28,6 +29,14 @@ def get_quality(symbol: str | None = None, timeframe_seconds: int | None = Query
         report["diagnostic_age_seconds"] = max(0, now - int(report["reported_at"]))
         report["calibration_status"] = "STRUCTURALLY_VALID_NOT_VISUALLY_VERIFIED" if report.get("calibration_structurally_valid") else "INVALID"
         report["data_source"] = "visual_estimate_not_exchange_verified"
+        report["status"] = classify_capture_status(
+            timeframe_seconds=int(report["timeframe_seconds"]),
+            latest_candle_age_seconds=report["latest_candle_age_seconds"],
+            diagnostic_age_seconds=report["diagnostic_age_seconds"],
+            duplicate_count=int(report.get("duplicate_count", 0)),
+            missing_timestamps=report.get("missing_timestamps") or [],
+            calibration_structurally_valid=bool(report.get("calibration_structurally_valid")),
+        )
     return {"items": reports, "signals_enabled": SIGNALS_ENABLED}
 
 
