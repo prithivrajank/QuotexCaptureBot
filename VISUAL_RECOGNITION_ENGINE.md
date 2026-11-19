@@ -69,3 +69,8 @@ The detector now removes long horizontal/vertical structures from the colour mas
 
 Detected candidates are mapped to timeframe slots and sorted by timestamp before ingestion. If multiple candidates map to the same slot, only the highest-confidence candidate is kept and a duplicate warning is logged. Missing time slots between visible detections are reported as gaps; the agent does not invent or interpolate candles. These diagnostics help reveal poor crop selection, detection misses or inaccurate x-axis calibration. A gap warning is not proof of a market-data outage because some chart layouts may hide candles or have irregular spacing. Review the visible Demo chart and recalibrate when warnings persist.
 
+## Reconstructed-candle validation
+
+Before a pixel candidate is converted to OHLC, the agent checks that the candle colour is recognized, body and wick bounds are ordered, the body width and height are within conservative limits, and confidence is within 0..1. Reconstructed prices must be finite and positive, and OHLC high/low must contain the open and close. Invalid candidates are skipped and logged as `candle_candidate_rejected`; they are not sent to history. These checks reject malformed geometry but cannot prove that a visually detected shape is a real broker candle. Compare accepted estimates with the visible Demo chart.
+
+Older capture agents that omit timestamp-alignment diagnostics retain the backward-compatible `ALIGNED` default. The current agent explicitly reports `NO_CANDLES` when no candidates are detected.
