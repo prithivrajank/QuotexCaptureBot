@@ -5,6 +5,7 @@ Read-only visual market-analysis project for Quotex Demo charts. The Windows cap
 ## Current build
 
 - Windows screen capture with manual price-axis and time-axis calibration.
+- Multi-pair capture through independent per-chart JSON profiles and one read-only process per visible chart.
 - Visual candle reconstruction with confidence filtering and forming/closed candle lifecycle.
 - FastAPI service with protected candle-ingest endpoint.
 - EMA 9/21/50, MACD, RSI 14, Bollinger Bands, ATR 14, trend strength and recent support/resistance calculations.
@@ -43,6 +44,17 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Dashboard: http://127.0.0.1:8000/ · API docs: http://127.0.0.1:8000/docs
+
+
+## Multi-pair capture (one profile per visible chart)
+
+The bot does not turn one screenshot into several symbols. To monitor multiple pairs at once, open each pair in its own visible chart region (for example, separate chart windows) and create one independent profile per chart. Every profile needs its own screen region, two price-axis calibration anchors and two time-axis calibration anchors.
+
+1. Create a JSON profile for each chart under `capture_profiles/` (for example, `capture_profiles/EURUSD_OTC.json`). Include `symbol`, optional `timeframe_seconds` (default 60), optional `fps` (default 2, maximum 5), `region`, `calibration` and `time_calibration`.
+2. Select/preview each profile's region with `python -m app.visual_capture --config capture_profiles/EURUSD_OTC.json --select`. Repeat for each profile. Add that profile's own calibration anchors using the documented format; never copy another chart's pixel anchors.
+3. Set `INGEST_TOKEN` in the terminal environment, then run `python run_multi_pair_agent.py`. The launcher starts one capture process per valid JSON profile and stops them together with Ctrl+C.
+
+A profile's `region` is in absolute desktop-screen coordinates. Chart windows must remain in those positions and keep the same zoom, timeframe, candle spacing and theme used during calibration. Each profile must point to a different actual chart. Monitoring more pairs requires enough screen space to keep each chart visible; a single chart cannot provide simultaneous independent data for multiple symbols. Capture processes share the same `INGEST_TOKEN` and API URL, with optional per-profile `api` and `fps` settings.
 
 ## Optional Telegram notifications
 
