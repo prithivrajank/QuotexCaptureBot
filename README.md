@@ -12,7 +12,7 @@ Read-only visual market-analysis project for Quotex Demo charts. The Windows cap
 - CALL/PUT/WAIT signal engine with 1-minute or 2-minute suggested expiry rules; signal generation is disabled by default behind an explicit safety switch.
 - Duplicate candle/signal protection and historical outcome evaluation.
 - PostgreSQL persistence when `DATABASE_URL` is configured; JSONL fallback otherwise.
-- Live dashboard with candlestick chart, CALL/PUT markers, latest signals, performance summary, candle details, indicator snapshot, API health and per-pair capture quality diagnostics (missing/duplicate slots, candle age and calibration status).
+- Live dashboard with candlestick chart, CALL/PUT markers, latest signals, performance summary, candle details, indicator snapshot, API health and per-pair capture quality diagnostics (missing/duplicate slots, candle age, calibration status, stale/offline state and global warning banner).
 - Optional Telegram notifications for newly-created CALL/PUT signals; disabled unless both private Telegram environment variables are configured. WAIT signals are not sent.
 - API documentation at `/docs`.
 
@@ -77,7 +77,7 @@ The bot does not turn one screenshot into several symbols. To monitor multiple p
 
 A profile's `region` is in absolute desktop-screen coordinates. Chart windows must remain in those positions and keep the same zoom, timeframe, candle spacing and theme used during calibration. Each profile must point to a different actual chart. Monitoring more pairs requires enough screen space to keep each chart visible; a single chart cannot provide simultaneous independent data for multiple symbols. Capture processes share the same `INGEST_TOKEN` and API URL, with optional per-profile `api` and `fps` settings.
 
-## Optional Telegram notifications
+## Capture freshness statuses\n\nThe dashboard classifies each reported chart profile using conservative thresholds: `CAPTURE_OFFLINE` when diagnostics are older than 45 seconds; `STALE` when the latest candle timestamp is older than the greater of 90 seconds or three timeframe intervals; `WARNING` when duplicate/missing candle slots or structurally invalid calibration are reported; `HEALTHY` only when freshness and sequence checks are clear; and `NO_DATA` when no candle/diagnostic timestamp is available. These are operational warnings for visual capture only, not proof of correct broker data.\n\n## Optional Telegram notifications
 
 Create a Telegram bot using the official BotFather account and obtain the destination chat ID. Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` as private environment variables in Render. Do not put real values in `.env.example`, GitHub, screenshots or chat messages. The notifier sends only newly-created CALL/PUT signal summaries; it does not send WAIT alerts or place orders. If either variable is missing, notifications remain disabled. A notification failure does not stop candle ingestion.
 
