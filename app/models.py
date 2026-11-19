@@ -51,6 +51,9 @@ class CaptureDiagnostics(BaseModel):
     unique_slots: int = Field(ge=0)
     duplicate_count: int = Field(ge=0)
     missing_timestamps: list[int] = Field(default_factory=list, max_length=1000)
+    missing_slot_count: int = Field(default=0, ge=0)
+    gap_count: int = Field(default=0, ge=0)
+    largest_gap_slots: int = Field(default=0, ge=0)
     calibration_structurally_valid: bool = True
     latest_candidate_timestamp: int | None = None
     expected_current_slot: int | None = None
