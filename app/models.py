@@ -55,7 +55,7 @@ class CaptureDiagnostics(BaseModel):
     latest_candidate_timestamp: int | None = None
     expected_current_slot: int | None = None
     timestamp_drift_seconds: int | None = None
-    timestamp_alignment_status: Literal["ALIGNED", "LAGGING", "AHEAD", "NO_CANDLES"] = "NO_CANDLES"
+    timestamp_alignment_status: Literal["ALIGNED", "LAGGING", "AHEAD", "NO_CANDLES"] = "ALIGNED"
     source: Literal["visual_estimate"] = "visual_estimate"
 
     @field_validator("symbol")
