@@ -85,7 +85,7 @@ def detect_candidates(image: np.ndarray, min_body_height: int = 3) -> list[Candl
         raise ValueError("Expected a non-empty BGR chart image")
     bull, bear = candle_masks(image)
     height, width = image.shape[:2]
-    max_body_width = max(30, width // 20)
+    max_body_width = 30
     candidates = []
 
     for color, raw_mask in (("bull", bull), ("bear", bear)):
