@@ -91,7 +91,9 @@ def main():
             diagnostic_fingerprint = (
                 diagnostic_payload["candidate_count"], diagnostic_payload["unique_slots"],
                 diagnostic_payload["duplicate_count"], tuple(diagnostic_payload["missing_timestamps"]), diagnostic_payload["missing_slot_count"],
-                diagnostic_payload["gap_count"], diagnostic_payload["largest_gap_slots"]
+                diagnostic_payload["gap_count"], diagnostic_payload["largest_gap_slots"],
+                diagnostic_payload["latest_candidate_timestamp"], diagnostic_payload["expected_current_slot"],
+                diagnostic_payload["timestamp_drift_seconds"], diagnostic_payload["timestamp_alignment_status"]
             )
             if diagnostic_fingerprint != last_diagnostics_fingerprint or time.monotonic() - last_diagnostics_success_monotonic >= 30:
                 try:
