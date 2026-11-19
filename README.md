@@ -12,7 +12,7 @@ Read-only visual market-analysis project for Quotex Demo charts. The Windows cap
 - CALL/PUT/WAIT signal engine with 1-minute or 2-minute suggested expiry rules; signal generation is disabled by default behind an explicit safety switch.
 - Duplicate candle/signal protection and historical outcome evaluation.
 - PostgreSQL persistence when `DATABASE_URL` is configured; JSONL fallback otherwise.
-- Live dashboard with candlestick chart, CALL/PUT markers, latest signals, performance summary, candle details, indicator snapshot and API health.
+- Live dashboard with candlestick chart, CALL/PUT markers, latest signals, performance summary, candle details, indicator snapshot, API health and per-pair capture quality diagnostics (missing/duplicate slots, candle age and calibration status).
 - Optional Telegram notifications for newly-created CALL/PUT signals; disabled unless both private Telegram environment variables are configured. WAIT signals are not sent.
 - API documentation at `/docs`.
 
