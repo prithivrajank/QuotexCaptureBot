@@ -9,8 +9,8 @@ class TimeCalibration:
     timestamp_right: float
 
     def __post_init__(self):
-        if self.x_left == self.x_right:
-            raise ValueError("Time calibration pixel anchors must differ")
+        if self.x_right <= self.x_left:
+            raise ValueError("Time calibration right x anchor must be greater than left x anchor")
         if self.timestamp_left == self.timestamp_right:
             raise ValueError("Time calibration timestamps must differ")
         if self.timestamp_right < self.timestamp_left:
