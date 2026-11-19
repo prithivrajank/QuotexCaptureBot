@@ -1,12 +1,13 @@
 import secrets
 from fastapi import FastAPI, Header, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
 from app.config import INGEST_TOKEN
 from app.models import VisualCandle, Signal
 from app.storage import upsert_candle, save_signal, candles, signals, evaluate_pending_signals, storage_backend
 from app.strategy import make_signal
+from app.indicators import calculate_indicators
 
-app = FastAPI(title="QuotexCaptureBot", version="0.3.0", description="Read-only visual chart analysis. Signals are experimental, not financial advice.")
+app = FastAPI(title="QuotexCaptureBot", version="0.4.0", description="Read-only visual chart analysis. Signals are experimental, not financial advice.")
 
 
 @app.get("/api/health")
@@ -22,6 +23,12 @@ def get_candles(limit: int = 200, symbol: str | None = None, timeframe_seconds: 
 @app.get("/api/signals")
 def get_signals(limit: int = 100, symbol: str | None = None, outcome: str | None = None):
     return {"items": signals(max(1, min(limit, 500)), symbol, outcome)}
+
+
+@app.get("/api/indicators")
+def get_indicators(symbol: str, timeframe_seconds: int = Query(default=60, ge=1, le=3600)):
+    history = candles(500, symbol, timeframe_seconds, closed_only=True)
+    return {"symbol": symbol.upper(), "timeframe_seconds": timeframe_seconds, "source": "visual_estimate", **calculate_indicators(history)}
 
 
 @app.get("/api/performance")
@@ -68,6 +75,6 @@ def ingest_candle(candle: VisualCandle, x_ingest_token: str = Header(default="")
     return {"accepted": True, "candle_state": "closed", "signal_created": created, "outcomes_updated": evaluated, "signal": signal.model_dump() if created else None}
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 def dashboard():
-    return """<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>QuotexCaptureBot</title><style>body{font:16px system-ui;background:#101827;color:#e5e7eb;margin:0;padding:28px}main{max-width:900px;margin:auto}.card{background:#1e293b;padding:18px;border-radius:12px;margin:14px 0}.muted{color:#94a3b8}a{color:#7dd3fc}</style></head><body><main><h1>QuotexCaptureBot</h1><p class='muted'>Read-only visual analysis · Demo testing only</p><div class='card'><h2>System status</h2><p id='health'>Loading…</p></div><div class='card'><h2>Performance (historical)</h2><pre id='performance'>Loading…</pre></div><div class='card'><h2>Latest signals</h2><pre id='signals'>Loading…</pre></div><div class='card'><h2>Recent candles</h2><pre id='candles'>Loading…</pre></div><div class='card'><h2>API</h2><a href='/docs'>Open API documentation</a></div></main><script>async function refresh(){try{let h=await fetch('/api/health');document.querySelector('#health').textContent=JSON.stringify(await h.json());let p=await fetch('/api/performance');document.querySelector('#performance').textContent=JSON.stringify(await p.json(),null,2);let s=await fetch('/api/signals?limit=20');document.querySelector('#signals').textContent=JSON.stringify(await s.json(),null,2);let c=await fetch('/api/candles?limit=20');document.querySelector('#candles').textContent=JSON.stringify(await c.json(),null,2)}catch(e){document.querySelector('#health').textContent='API unavailable'}}refresh();setInterval(refresh,5000)</script></body></html>"""
+    return FileResponse("app/dashboard.html", media_type="text/html")
