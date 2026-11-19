@@ -1,9 +1,10 @@
 import secrets
+import time
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from app.config import INGEST_TOKEN, SIGNALS_ENABLED
-from app.models import VisualCandle, Signal
-from app.storage import upsert_candle, save_signal, candles, signals, evaluate_pending_signals, storage_backend
+from app.models import VisualCandle, Signal, CaptureDiagnostics
+from app.storage import upsert_candle, save_signal, candles, signals, evaluate_pending_signals, storage_backend, save_quality_report, quality_reports
 from app.strategy import make_signal
 from app.indicators import calculate_indicators
 from app.notifications import send_signal_alert
@@ -14,6 +15,20 @@ app = FastAPI(title="QuotexCaptureBot", version="0.4.0", description="Read-only 
 @app.get("/api/health")
 def health():
     return {"status": "ok", "mode": "read_only", "source": "visual_estimates", "pipeline": "candle_lifecycle_signal_outcomes", "signals_enabled": SIGNALS_ENABLED, "storage": storage_backend()}
+
+
+@app.get("/api/quality")
+def get_quality(symbol: str | None = None, timeframe_seconds: int | None = Query(default=None, ge=1, le=3600)):
+    reports = quality_reports(symbol, timeframe_seconds)
+    now = int(time.time())
+    for report in reports:
+        latest = candles(1, report["symbol"], int(report["timeframe_seconds"]))
+        report["latest_candle_timestamp"] = latest[-1]["timestamp"] if latest else None
+        report["latest_candle_age_seconds"] = max(0, now - int(latest[-1]["timestamp"])) if latest else None
+        report["diagnostic_age_seconds"] = max(0, now - int(report["reported_at"]))
+        report["calibration_status"] = "STRUCTURALLY_VALID_NOT_VISUALLY_VERIFIED" if report.get("calibration_structurally_valid") else "INVALID"
+        report["data_source"] = "visual_estimate_not_exchange_verified"
+    return {"items": reports, "signals_enabled": SIGNALS_ENABLED}
 
 
 @app.get("/api/candles")
@@ -41,6 +56,14 @@ def performance(symbol: str | None = None):
     draws = sum(row["outcome"] == "DRAW" for row in evaluated)
     decisive = wins + losses
     return {"evaluated": len(evaluated), "pending": sum(row.get("outcome") == "PENDING" for row in rows), "wins": wins, "losses": losses, "draws": draws, "win_rate_percent": round(wins / decisive * 100, 2) if decisive else None, "note": "Historical visual estimates only; not a prediction or guarantee."}
+
+
+@app.post("/api/ingest/diagnostics")
+def ingest_diagnostics(report: CaptureDiagnostics, x_ingest_token: str = Header(default="")):
+    if not INGEST_TOKEN or not secrets.compare_digest(x_ingest_token, INGEST_TOKEN):
+        raise HTTPException(status_code=401, detail="Invalid ingest token")
+    save_quality_report(report.model_dump())
+    return {"accepted": True, "symbol": report.symbol, "timeframe_seconds": report.timeframe_seconds}
 
 
 @app.post("/api/ingest/candle")
