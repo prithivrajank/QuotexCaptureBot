@@ -7,7 +7,7 @@ def make_signal(candles: list[dict]) -> dict:
         return _wait("Need at least 50 completed candles for EMA50 and market context", "insufficient")
     latest = candles[-1]
     if latest.get("confidence", 0) < 0.80:
-        return _wait("Latest visual candle shape score below 0.80", "low")
+        return _wait("Latest visual candle confidence/shape score below 0.80", "low")
     if any(c.get("confidence", 0) < 0.72 for c in candles[-20:]):
         return _wait("Recent visual candle shape quality is inconsistent", "low")
 
