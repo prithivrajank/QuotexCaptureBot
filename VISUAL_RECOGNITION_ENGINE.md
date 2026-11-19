@@ -34,6 +34,13 @@ set INGEST_TOKEN=YOUR_LONG_RANDOM_SECRET
 python -m app.local_agent --symbol EURUSD_OTC --timeframe 60
 ```
 
+
+## Profile validation before capture
+
+The local capture agent and multi-profile launcher validate the profile before opening screen capture. They reject missing calibration, non-finite values, non-positive prices, anchors outside the crop, invalid time order, empty symbols, and invalid timeframe values. All calibration pixel coordinates are relative to the cropped image, not absolute desktop coordinates. The `region.left/top` values are absolute desktop coordinates; `calibration.y_*` and `time_calibration.x_*` are crop-relative. This prevents a common coordinate-system mix-up.
+
+Validation only checks that the values are structurally plausible. It cannot prove that the selected price/time labels were read correctly or that candle centers align with real timestamps. Manual Demo comparison is still required. Signal generation remains disabled by default until this review is complete.
+
 ## Timestamp and history behavior
 
 - Every detected candle is mapped from its horizontal pixel center to a candle timestamp.
