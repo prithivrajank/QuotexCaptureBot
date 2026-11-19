@@ -13,3 +13,5 @@ def test_rejects_invalid_anchors():
         TimeCalibration(100, 1000, 100, 1060)
     with pytest.raises(ValueError):
         TimeCalibration(100, 1060, 200, 1000)
+    with pytest.raises(ValueError):
+        TimeCalibration(200, 1000, 100, 1060)
