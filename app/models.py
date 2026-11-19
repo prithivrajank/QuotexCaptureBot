@@ -52,6 +52,10 @@ class CaptureDiagnostics(BaseModel):
     duplicate_count: int = Field(ge=0)
     missing_timestamps: list[int] = Field(default_factory=list, max_length=1000)
     calibration_structurally_valid: bool = True
+    latest_candidate_timestamp: int | None = None
+    expected_current_slot: int | None = None
+    timestamp_drift_seconds: int | None = None
+    timestamp_alignment_status: Literal["ALIGNED", "LAGGING", "AHEAD", "NO_CANDLES"] = "NO_CANDLES"
     source: Literal["visual_estimate"] = "visual_estimate"
 
     @field_validator("symbol")
