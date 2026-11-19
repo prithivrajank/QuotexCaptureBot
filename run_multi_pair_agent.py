@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from app.vision.config import validate_visual_config
 
 
 def main():
@@ -20,16 +21,11 @@ def main():
     for profile in profiles:
         try:
             data = json.loads(profile.read_text(encoding="utf-8"))
+            errors = validate_visual_config(data)
+            if errors:
+                raise ValueError("; ".join(errors))
             symbol = str(data["symbol"]).strip().upper()
             timeframe = int(data.get("timeframe_seconds", 60))
-            region = data.get("region", data)
-            if not symbol or timeframe < 1:
-                raise ValueError("symbol must be non-empty and timeframe_seconds must be positive")
-            for key in ("left", "top", "width", "height"):
-                if key not in region:
-                    raise ValueError(f"missing region field: {key}")
-            if "calibration" not in data or "time_calibration" not in data:
-                raise ValueError("both calibration and time_calibration are required")
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             raise SystemExit(f"Invalid profile {profile}: {exc}")
 
