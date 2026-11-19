@@ -11,7 +11,7 @@ The branch now includes a first-pass live candle update pipeline and signal-hist
 - Signals are evaluated only when a candle first transitions to closed; duplicate close submissions do not create duplicate signal-history entries.
 - Dashboard refreshes recent candles, signals and historical outcome statistics.\n- CALL/PUT signals record the closed candle close as the estimated entry price and remain PENDING until a later closed candle reaches the configured expiry timestamp. The evaluator labels WIN/LOSS/DRAW by comparing that later close with the entry price; WAIT signals are not evaluated.\n- `GET /api/performance` returns counts and a historical win rate based only on evaluated CALL/PUT signals.
 
-This is still a prototype, not a validated Quotex chart reader. Candle body/wick detection remains heuristic and can misread chart overlays, zoom levels, themes or unusual candle styles. The confidence score is a heuristic filter, not a probability. The agent currently assigns the current time slot to the rightmost detected candle; it does not yet derive timestamps from chart-axis labels or reconstruct a full historical candle series. A missed final capture can therefore leave the last candle incomplete.
+This is still a prototype, not a validated Quotex chart reader. Candle body/wick detection remains heuristic and can misread chart overlays, zoom levels, themes or unusual candle styles. The confidence score is a heuristic filter, not a probability. The agent now maps detected candle x-centers to timestamps using two manually supplied x-axis time anchors and can submit multiple visible candles. This is linear pixel-to-time calibration, not automatic OCR; irregular spacing, hidden candles, or chart layout changes can invalidate it. Compare reconstructed candles with the visible Demo chart before relying on the history.
 
 ## Windows setup (Python 3.11)
 
@@ -24,7 +24,7 @@ copy .env.example .env
 python -m app.visual_capture --select
 ```
 
-The capture setup stores the selected rectangle in `visual_config.json` and preserves a calibration object if one already exists. OHLC reconstruction still requires two manually measured price-axis anchors under `calibration`; do not use placeholder values. See `VISUAL_RECOGNITION_ENGINE.md` for calibration format and limitations.
+The capture setup stores the selected rectangle in `visual_config.json` and preserves a calibration object if one already exists. OHLC reconstruction requires two manually measured price-axis anchors under `calibration`, and timestamp reconstruction requires two candle-center x-axis anchors under `time_calibration`; do not use placeholder values. See `VISUAL_RECOGNITION_ENGINE.md` for the exact format and limitations.
 
 In a second CMD window, run the API:
 
