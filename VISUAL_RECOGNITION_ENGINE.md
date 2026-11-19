@@ -64,3 +64,8 @@ Validation only checks that the values are structurally plausible. It cannot pro
 
 The detector now removes long horizontal/vertical structures from the colour masks before connected-component analysis, then estimates the dense candle-body rows separately from thin wick pixels. Candidate confidence is reduced for sparse shapes and components dominated by thin lines. This is a heuristic improvement only: coloured overlays, unusually thin candles, shadows, annotations and chart themes can still cause false detections or missed candles. The synthetic detector tests are committed but have not been executed in this workflow. Compare detected candles with the live Demo chart before enabling signal generation.
 
+
+## Timestamp sequence checks
+
+Detected candidates are mapped to timeframe slots and sorted by timestamp before ingestion. If multiple candidates map to the same slot, only the highest-confidence candidate is kept and a duplicate warning is logged. Missing time slots between visible detections are reported as gaps; the agent does not invent or interpolate candles. These diagnostics help reveal poor crop selection, detection misses or inaccurate x-axis calibration. A gap warning is not proof of a market-data outage because some chart layouts may hide candles or have irregular spacing. Review the visible Demo chart and recalibrate when warnings persist.
+
