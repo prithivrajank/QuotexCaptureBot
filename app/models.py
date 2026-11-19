@@ -6,10 +6,10 @@ class VisualCandle(BaseModel):
     symbol: str = Field(min_length=1, max_length=40)
     timeframe_seconds: int = Field(default=60, ge=1, le=3600)
     timestamp: int = Field(gt=0)
-    open: float
-    high: float
-    low: float
-    close: float
+    open: float = Field(gt=0)
+    high: float = Field(gt=0)
+    low: float = Field(gt=0)
+    close: float = Field(gt=0)
     confidence: float = Field(ge=0, le=1)
     source: Literal["visual_estimate"] = "visual_estimate"
     is_closed: bool = False
@@ -22,7 +22,9 @@ class VisualCandle(BaseModel):
     def valid_ohlc(self) -> bool:
         import math
         values = (self.open, self.high, self.low, self.close)
-        if not all(math.isfinite(v) for v in values):
+        if not all(math.isfinite(v) and v > 0 for v in values):
+            return False
+        if self.timestamp % self.timeframe_seconds != 0:
             return False
         return self.high >= max(self.open, self.close, self.low) and self.low <= min(self.open, self.close, self.high)
 
