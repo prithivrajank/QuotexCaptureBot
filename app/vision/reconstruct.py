@@ -36,6 +36,8 @@ def reconstruct(candidate: CandleCandidate, calibration: PriceCalibration, symbo
     validate_candidate(candidate)
     if timestamp <= 0 or timeframe_seconds < 1:
         raise ValueError("Timestamp and timeframe must be positive")
+    if int(timestamp) % timeframe_seconds != 0:
+        raise ValueError("Candle timestamp must align to its timeframe slot")
     p_wick_top = calibration.price_at(candidate.wick_top)
     p_wick_bottom = calibration.price_at(candidate.wick_bottom)
     p_body_top = calibration.price_at(candidate.body_top)
