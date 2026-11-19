@@ -11,5 +11,7 @@ services:
         value: 3.11.11
       - key: INGEST_TOKEN
         sync: false
+      - key: DATABASE_URL
+        sync: false
       - key: DATA_DIR
         value: data
