@@ -1,20 +1,18 @@
-"""Local Windows capture/recognition agent. Sends forming updates and closes candles on rollover.
+"""Local Windows capture/recognition agent. Uses manual x-axis calibration for candle timestamps.
 
-This is still heuristic pixel recognition; confidence is a detector score, not a
-statistical probability. The chart must remain visible and calibrated.
+This remains heuristic pixel recognition; it does not read chart labels or broker data.
 """
 import argparse
 import json
 import os
 import time
-from pathlib import Path
+from app.vision.config import load_visual_config, load_calibration, load_time_calibration
+from app.vision.detector import detect_candidates
+from app.vision.reconstruct import reconstruct
 import cv2
 import mss
 import numpy as np
 import requests
-from app.vision.config import load_visual_config, load_calibration
-from app.vision.detector import detect_candidates
-from app.vision.reconstruct import reconstruct
 
 
 def main():
@@ -32,51 +30,47 @@ def main():
         raise SystemExit("Set INGEST_TOKEN in this terminal before remote ingest.")
     cfg = load_visual_config()
     region = cfg["region"] if "region" in cfg else {k: cfg[k] for k in ("left", "top", "width", "height")}
-    calibration = load_calibration()
+    price_calibration = load_calibration()
+    time_calibration = load_time_calibration()
     headers = {"X-Ingest-Token": token}
-    pending = None
-    last_payload_fingerprint = None
+    sent_fingerprints = {}
     with mss.mss() as sct:
         while True:
             now = int(time.time())
-            slot = now - (now % args.timeframe)
+            current_slot = now - (now % args.timeframe)
             raw = np.asarray(sct.grab(region))
             frame = cv2.cvtColor(raw, cv2.COLOR_BGRA2BGR)
             found = detect_candidates(frame)
+            seen_keys = set()
 
-            # On candle rollover, close the previous candle using its last observed OHLC.
-            if pending is not None and slot > pending["timestamp"]:
-                closed_payload = {**pending, "is_closed": True}
+            for candidate in found:
+                candle_ts = time_calibration.candle_timestamp_at(candidate.x, args.timeframe)
+                # Do not ingest projected future candles or stale chart positions.
+                if candle_ts > current_slot or candle_ts < current_slot - (500 * args.timeframe):
+                    continue
+                payload = reconstruct(candidate, price_calibration, args.symbol, candle_ts, args.timeframe)
+                payload["is_closed"] = candle_ts < current_slot
+                key = (payload["symbol"], candle_ts)
+                seen_keys.add(key)
+                fingerprint = tuple(round(payload[k], 8) for k in ("open", "high", "low", "close")) + (round(payload["confidence"], 3), payload["is_closed"])
+                if sent_fingerprints.get(key) == fingerprint:
+                    continue
                 try:
-                    response = requests.post(args.api.rstrip("/") + "/api/ingest/candle", json=closed_payload, headers=headers, timeout=8)
-                    print(f"Closed candle: {response.status_code} {response.text[:250]}")
+                    response = requests.post(args.api.rstrip("/") + "/api/ingest/candle", json=payload, headers=headers, timeout=8)
+                    if response.ok:
+                        sent_fingerprints[key] = fingerprint
+                        print(json.dumps({"timestamp": candle_ts, "closed": payload["is_closed"], "result": response.json()}))
+                    else:
+                        print(f"Ingest rejected: {response.status_code} {response.text[:200]}")
                 except requests.RequestException as exc:
-                    print(f"Close ingest error: {exc}")
-                pending = None
-                last_payload_fingerprint = None
+                    print(f"API connection error: {exc}")
 
-            if found:
-                candidate = max(found, key=lambda item: item.x)
-                payload = reconstruct(candidate, calibration, args.symbol, slot, args.timeframe)
-                payload["is_closed"] = False
-                # Avoid flooding the API with identical pixel readings.
-                fingerprint = tuple(round(payload[k], 8) for k in ("open", "high", "low", "close")) + (round(payload["confidence"], 3),)
-                pending = payload
-                if fingerprint != last_payload_fingerprint:
-                    try:
-                        response = requests.post(args.api.rstrip("/") + "/api/ingest/candle", json=payload, headers=headers, timeout=8)
-                        if response.ok:
-                            last_payload_fingerprint = fingerprint
-                            print(json.dumps(response.json()))
-                        else:
-                            print(f"Ingest rejected: {response.status_code} {response.text[:200]}")
-                    except requests.RequestException as exc:
-                        print(f"API connection error: {exc}")
+            # Keep memory bounded; recent 500 candle slots are enough for this local agent.
+            cutoff = current_slot - (500 * args.timeframe)
+            sent_fingerprints = {key: value for key, value in sent_fingerprints.items() if key[1] >= cutoff}
             if args.once:
                 break
             time.sleep(1.0 / max(0.2, min(args.fps, 5)))
-
-    # On Ctrl+C the current candle intentionally remains forming, not falsely closed.
 
 
 if __name__ == "__main__":
