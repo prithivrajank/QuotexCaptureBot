@@ -39,3 +39,10 @@ def test_non_positive_calibrated_prices_are_rejected():
     calibration = PriceCalibration(0, 1.0, 100, -1.0)
     with pytest.raises(ValueError, match="non-finite or non-positive"):
         reconstruct(candidate(), calibration, "EURUSD_OTC", 1_800_000_000, 60)
+
+
+
+def test_reconstruction_requires_timeframe_aligned_timestamp():
+    calibration = PriceCalibration(0, 2.0, 100, 1.0)
+    with pytest.raises(ValueError):
+        reconstruct(candidate(), calibration, "EURUSD_OTC", 1_800_000_001, 60)
