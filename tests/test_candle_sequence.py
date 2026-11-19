@@ -46,4 +46,19 @@ def test_missing_slots_are_reported_not_fabricated():
     )
     assert len(ordered) == 2
     assert info["missing_timestamps"] == [1800000120]
+    assert info["missing_slot_count"] == 1
+    assert info["gap_count"] == 1
+    assert info["largest_gap_slots"] == 1
     assert info["sequence_contiguous"] is False
+
+
+def test_large_gap_is_counted_without_unbounded_timestamp_list():
+    ordered, info = deduplicate_candles(
+        [candidate(0, 0.9), candidate(120000, 0.9)],
+        calibration(),
+        60,
+    )
+    assert len(ordered) == 2
+    assert info["missing_slot_count"] == 119999
+    assert info["largest_gap_slots"] == 119999
+    assert len(info["missing_timestamps"]) == 1000
