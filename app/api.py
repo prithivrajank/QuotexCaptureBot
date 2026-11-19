@@ -3,7 +3,7 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from app.config import INGEST_TOKEN
 from app.models import VisualCandle, Signal
-from app.storage import upsert_candle, save_signal, candles, signals, evaluate_pending_signals
+from app.storage import upsert_candle, save_signal, candles, signals, evaluate_pending_signals, storage_backend
 from app.strategy import make_signal
 
 app = FastAPI(title="QuotexCaptureBot", version="0.3.0", description="Read-only visual chart analysis. Signals are experimental, not financial advice.")
@@ -11,7 +11,7 @@ app = FastAPI(title="QuotexCaptureBot", version="0.3.0", description="Read-only 
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "mode": "read_only", "source": "visual_estimates", "pipeline": "candle_lifecycle_signal_outcomes"}
+    return {"status": "ok", "mode": "read_only", "source": "visual_estimates", "pipeline": "candle_lifecycle_signal_outcomes", "storage": storage_backend()}
 
 
 @app.get("/api/candles")
