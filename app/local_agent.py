@@ -78,6 +78,9 @@ def main():
                 "unique_slots": sequence_info["unique_slots"],
                 "duplicate_count": len(sequence_info["duplicate_timestamps"]),
                 "missing_timestamps": sequence_info["missing_timestamps"],
+                "missing_slot_count": sequence_info["missing_slot_count"],
+                "gap_count": sequence_info["gap_count"],
+                "largest_gap_slots": sequence_info["largest_gap_slots"],
                 "calibration_structurally_valid": True,
                 "latest_candidate_timestamp": latest_candidate_timestamp,
                 "expected_current_slot": current_slot,
@@ -87,7 +90,8 @@ def main():
             }
             diagnostic_fingerprint = (
                 diagnostic_payload["candidate_count"], diagnostic_payload["unique_slots"],
-                diagnostic_payload["duplicate_count"], tuple(diagnostic_payload["missing_timestamps"])
+                diagnostic_payload["duplicate_count"], tuple(diagnostic_payload["missing_timestamps"]), diagnostic_payload["missing_slot_count"],
+                diagnostic_payload["gap_count"], diagnostic_payload["largest_gap_slots"]
             )
             if diagnostic_fingerprint != last_diagnostics_fingerprint or time.monotonic() - last_diagnostics_success_monotonic >= 30:
                 try:
