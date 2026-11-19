@@ -50,6 +50,7 @@ def main():
     time_calibration = load_time_calibration(config_path)
     headers = {"X-Ingest-Token": token}
     sent_fingerprints = {}
+    last_diagnostics_fingerprint = None
 
     print(json.dumps({"status": "started", "symbol": symbol, "timeframe_seconds": timeframe, "config": str(config_path), "api": api}))
     with mss.mss() as sct:
@@ -60,6 +61,27 @@ def main():
             frame = cv2.cvtColor(raw, cv2.COLOR_BGRA2BGR)
             found = detect_candidates(frame)
             found, sequence_info = deduplicate_candles(found, time_calibration, timeframe)
+            diagnostic_payload = {
+                "symbol": symbol, "timeframe_seconds": timeframe, "reported_at": now,
+                "candidate_count": sequence_info["candidate_count"],
+                "unique_slots": sequence_info["unique_slots"],
+                "duplicate_count": len(sequence_info["duplicate_timestamps"]),
+                "missing_timestamps": sequence_info["missing_timestamps"],
+                "calibration_structurally_valid": True, "source": "visual_estimate",
+            }
+            diagnostic_fingerprint = (
+                diagnostic_payload["candidate_count"], diagnostic_payload["unique_slots"],
+                diagnostic_payload["duplicate_count"], tuple(diagnostic_payload["missing_timestamps"])
+            )
+            if diagnostic_fingerprint != last_diagnostics_fingerprint or now % 30 == 0:
+                try:
+                    diag_response = requests.post(api + "/api/ingest/diagnostics", json=diagnostic_payload, headers=headers, timeout=8)
+                    if diag_response.ok:
+                        last_diagnostics_fingerprint = diagnostic_fingerprint
+                    else:
+                        print(f"Diagnostics rejected for {symbol}: {diag_response.status_code} {diag_response.text[:160]}")
+                except requests.RequestException as exc:
+                    print(f"Diagnostics API error for {symbol}: {exc}")
             if sequence_info["duplicate_timestamps"] or sequence_info["missing_timestamps"]:
                 print(json.dumps({"event": "candle_sequence_warning", "symbol": symbol, **sequence_info}))
 
