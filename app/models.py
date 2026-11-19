@@ -41,3 +41,20 @@ class Signal(BaseModel):
     evaluated_at: int | None = None
     data_quality: str
     source: str = "visual_estimate"
+
+
+class CaptureDiagnostics(BaseModel):
+    symbol: str = Field(min_length=1, max_length=40)
+    timeframe_seconds: int = Field(ge=1, le=3600)
+    reported_at: int = Field(gt=0)
+    candidate_count: int = Field(ge=0)
+    unique_slots: int = Field(ge=0)
+    duplicate_count: int = Field(ge=0)
+    missing_timestamps: list[int] = Field(default_factory=list, max_length=1000)
+    calibration_structurally_valid: bool = True
+    source: Literal["visual_estimate"] = "visual_estimate"
+
+    @field_validator("symbol")
+    @classmethod
+    def clean_diagnostic_symbol(cls, value: str) -> str:
+        return value.strip().upper()
